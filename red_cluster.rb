@@ -42,6 +42,17 @@ class RedCluster
     @servers = servers.map { |server| Server.new server }
   end
 
+  def keys(pattern)
+    @servers.map do |server|
+      server.cnx.keys pattern
+    end.flatten
+  end
+
+  def flushall
+    @servers.each { |server| server.cnx.flushall }
+    "OK"
+  end
+
   def randomkey
     servers_with_keys_in_them  = @servers.select { |server| server.cnx.randomkey != nil }
     idx = (rand * servers_with_keys_in_them.count).to_i

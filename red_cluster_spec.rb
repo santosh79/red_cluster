@@ -39,6 +39,31 @@ describe RedCluster do
     end
   end
 
+  context "#flushall" do
+    it "flushes keys from all across the cluster" do
+      (1...1000).to_a.each { |num| rc.set("number|#{num}", "hello") }
+      first_servers_keys = rc.servers.first.cnx.keys("*")
+      first_servers_keys.size.should > 0
+      second_servers_keys = rc.servers.last.cnx.keys("*")
+      second_servers_keys.size.should > 0
+      rc.flushall.should == "OK"
+      rc.keys("*").size.should == 0
+    end
+  end
+
+  context "#keys" do
+    it 'scans across the cluster' do
+      (1...1000).to_a.each { |num| rc.set("number|#{num}", "hello") }
+      first_servers_keys = rc.servers.first.cnx.keys("*")
+      first_servers_keys.size.should > 0
+      second_servers_keys = rc.servers.last.cnx.keys("*")
+      second_servers_keys.size.should > 0
+      first_servers_keys.map(&:to_s).sort.should_not == second_servers_keys.map(&:to_s).sort
+      all_keys = rc.keys("*")
+      all_keys.map(&:to_s).sort.should == (first_servers_keys + second_servers_keys).map(&:to_s).sort
+    end
+  end
+
   context "#sdiffstore" do
     it "stores the diff in the destination" do
       (1..10).to_a.each { |num| rc.sadd "set_one", num }
