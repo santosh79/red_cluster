@@ -1,23 +1,13 @@
 require 'rubygems'
 require 'fakeredis'
-require File.join(__FILE__,'../red_cluster')
-
-describe RedCluster::Server do
-  it "gets initialized with the host and port as keys to hashes" do
-    s = RedCluster::Server.new :host => "127.0.0.1", :port => "63"
-  end
-  it "two servers are equal if they share the same host and port" do
-    s1 = RedCluster::Server.new :host => "127.0.0.1", :port => "63"
-    s2 = RedCluster::Server.new :host => "127.0.0.1", :port => "63"
-    s1.should == s2
-  end
-end
+require File.join(__FILE__,'../../red_cluster')
 
 describe RedCluster do
   let(:rc) { RedCluster.new [{:host => "127.0.0.1", :port => "6379"}, {:host => "127.0.0.1", :port => "7379"}] }
+  after { rc.flushall }
 
   it "gets initialized with an array of hashes containing server info" do
-    servers = [{:host => "127.0.0.1", :port => "6379"}, {:host => "127.0.0.1", :port => "7379"}]
+    servers = [{:host => "127.0.0.1", :port => "6379"}, {:host => "127.0.0.1", :port => "7379"}, {:host => "127.0.0.1", :port => "8379"}]
     RedCluster.new servers
   end
 
@@ -152,6 +142,17 @@ describe RedCluster do
       rc.exists("foo").should_not be
       rc.get("foo_new").should == "bar"
     end
+  end
+end
+
+describe RedCluster::Server do
+  it "gets initialized with the host and port as keys to hashes" do
+    s = RedCluster::Server.new :host => "127.0.0.1", :port => "6379"
+  end
+  it "two servers are equal if they share the same host and port" do
+    s1 = RedCluster::Server.new :host => "127.0.0.1", :port => "6379"
+    s2 = RedCluster::Server.new :host => "127.0.0.1", :port => "6379"
+    s1.should == s2
   end
 end
 
