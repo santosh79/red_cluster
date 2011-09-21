@@ -135,7 +135,7 @@ class RedCluster
     if SINGLE_KEY_OPS.include?(method.to_sym)
       key = args.first
       server = server_for_key key
-      server.cnx.send method.to_sym, *args
+      server.cnx.send method, *args
     else
       raise "Unsupported operation: #{method}"
     end
