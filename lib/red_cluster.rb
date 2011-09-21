@@ -85,7 +85,7 @@ class RedCluster
   def sdiff(*sets)
     first_set = Set.new(self.smembers(sets.first))
     sets[1..-1].inject(first_set) do |diff_set, set|
-      diff_set = diff_set.difference(Set.new(self.smembers(set)))
+      diff_set.difference(Set.new(self.smembers(set)))
     end.entries
   end
 
@@ -99,7 +99,7 @@ class RedCluster
   def sinter(*sets)
     first_set = Set.new(self.smembers(sets.first))
     sets[1..-1].inject(first_set) do |inter_set, set|
-      inter_set = inter_set.intersection(Set.new(self.smembers(set)))
+      inter_set.intersection(Set.new(self.smembers(set)))
     end.entries
   end
 
@@ -111,9 +111,8 @@ class RedCluster
   end
 
   def sunion(*sets)
-    first_set = Set.new(self.smembers(sets.first))
-    sets[1..-1].inject(first_set) do |union_set, set|
-      union_set = union_set.union(Set.new(self.smembers(set)))
+    sets[0..-1].inject(Set.new) do |union_set, set|
+      union_set.union(Set.new(self.smembers(set)))
     end.entries
   end
 
@@ -125,19 +124,20 @@ class RedCluster
   end
 
   def zinterstore(*sorted_sets)
-    raise "Operation Not Supported"
+    raise "Operation Not Supported -- Yet!"
   end
 
   def zunionstore(*sorted_sets)
-    raise "Operation Not Supported"
+    raise "Operation Not Supported -- Yet!"
   end
 
   def method_missing(method, *args)
-    meth = method.to_sym
-    if SINGLE_KEY_OPS.include?(meth.to_sym)
+    if SINGLE_KEY_OPS.include?(method.to_sym)
       key = args.first
       server = server_for_key key
-      server.cnx.send(meth.to_sym, *args)
+      server.cnx.send method.to_sym, *args
+    else
+      raise "Unsupported operation: #{method}"
     end
   end
 
