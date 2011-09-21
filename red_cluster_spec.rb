@@ -1,5 +1,4 @@
 require 'rubygems'
-require 'mocha'
 require 'fakeredis'
 require File.join(__FILE__,'../red_cluster')
 
