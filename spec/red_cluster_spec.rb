@@ -1,6 +1,6 @@
 require 'rubygems'
 require 'fakeredis'
-require File.join(__FILE__,'../../red_cluster')
+require File.join(__FILE__,'../../lib/red_cluster')
 
 describe RedCluster do
   before(:all) do
