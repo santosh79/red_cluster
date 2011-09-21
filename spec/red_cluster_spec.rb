@@ -3,7 +3,10 @@ require 'fakeredis'
 require File.join(__FILE__,'../../red_cluster')
 
 describe RedCluster do
-  let(:rc) { RedCluster.new [{:host => "127.0.0.1", :port => "6379"}, {:host => "127.0.0.1", :port => "7379"}] }
+  before(:all) do
+    @rc ||=  RedCluster.new [{:host => "127.0.0.1", :port => "6379"}, {:host => "127.0.0.1", :port => "7379"}] 
+  end
+  let(:rc) { @rc }
   after { rc.flushall }
 
   it "gets initialized with an array of hashes containing server info" do
@@ -30,19 +33,19 @@ describe RedCluster do
 
   context "#flushall" do
     it "flushes keys from all across the cluster" do
-      (1...1000).to_a.each { |num| rc.set("number|#{num}", "hello") }
-      first_servers_keys = rc.servers.first.cnx.keys("*")
-      first_servers_keys.size.should > 0
-      second_servers_keys = rc.servers.last.cnx.keys("*")
-      second_servers_keys.size.should > 0
+      (1..10_000).to_a.each { |num| rc.set("number|#{num}", "hello") }
+      first_server_rand_key = rc.servers.first.cnx.randomkey
+      first_server_rand_key.should be
+      second_server_rand_key = rc.servers.last.cnx.randomkey
+      second_server_rand_key.should be
       rc.flushall.should == "OK"
-      rc.keys("*").size.should == 0
+      rc.randomkey.should_not be
     end
   end
 
   context "#keys" do
     it 'scans across the cluster' do
-      (1...1000).to_a.each { |num| rc.set("number|#{num}", "hello") }
+      (1..1000).to_a.each { |num| rc.set("number|#{num}", "hello") }
       first_servers_keys = rc.servers.first.cnx.keys("*")
       first_servers_keys.size.should > 0
       second_servers_keys = rc.servers.last.cnx.keys("*")
