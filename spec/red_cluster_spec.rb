@@ -34,11 +34,18 @@ describe RedCluster do
   context "#flushall" do
     it "flushes keys from all across the cluster" do
       (1..10_000).to_a.each { |num| rc.set("number|#{num}", "hello") }
+
       first_server_rand_key = rc.servers.first.cnx.randomkey
       first_server_rand_key.should be
       second_server_rand_key = rc.servers.last.cnx.randomkey
       second_server_rand_key.should be
+
       rc.flushall.should == "OK"
+
+      first_server_rand_key = rc.servers.first.cnx.randomkey
+      first_server_rand_key.should_not be
+      second_server_rand_key = rc.servers.last.cnx.randomkey
+      second_server_rand_key.should_not be
       rc.randomkey.should_not be
     end
   end
