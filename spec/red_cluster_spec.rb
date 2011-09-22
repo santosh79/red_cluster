@@ -17,7 +17,7 @@ describe RedCluster do
   context "#set" do
     it "stores the key value in only one of the servers it's fronting" do
       rc.set "foo", "bar"
-      rc.servers.select { |server| server.cnx.get("foo") != nil }.size.should == 1
+      rc.servers.select { |server| server.get("foo") != nil }.size.should == 1
     end
   end
 
@@ -35,16 +35,16 @@ describe RedCluster do
     it "flushes keys from all across the cluster" do
       (1..10_000).to_a.each { |num| rc.set("number|#{num}", "hello") }
 
-      first_server_rand_key = rc.servers.first.cnx.randomkey
+      first_server_rand_key = rc.servers.first.randomkey
       first_server_rand_key.should be
-      second_server_rand_key = rc.servers.last.cnx.randomkey
+      second_server_rand_key = rc.servers.last.randomkey
       second_server_rand_key.should be
 
       rc.flushall.should == "OK"
 
-      first_server_rand_key = rc.servers.first.cnx.randomkey
+      first_server_rand_key = rc.servers.first.randomkey
       first_server_rand_key.should_not be
-      second_server_rand_key = rc.servers.last.cnx.randomkey
+      second_server_rand_key = rc.servers.last.randomkey
       second_server_rand_key.should_not be
       rc.randomkey.should_not be
     end
@@ -53,9 +53,9 @@ describe RedCluster do
   context "#keys" do
     it 'scans across the cluster' do
       (1..1000).to_a.each { |num| rc.set("number|#{num}", "hello") }
-      first_servers_keys = rc.servers.first.cnx.keys("*")
+      first_servers_keys = rc.servers.first.keys("*")
       first_servers_keys.size.should > 0
-      second_servers_keys = rc.servers.last.cnx.keys("*")
+      second_servers_keys = rc.servers.last.keys("*")
       second_servers_keys.size.should > 0
       first_servers_keys.map(&:to_s).sort.should_not == second_servers_keys.map(&:to_s).sort
       all_keys = rc.keys("*")
@@ -152,17 +152,6 @@ describe RedCluster do
       rc.exists("foo").should_not be
       rc.get("foo_new").should == "bar"
     end
-  end
-end
-
-describe RedCluster::Server do
-  it "gets initialized with the host and port as keys to hashes" do
-    s = RedCluster::Server.new :host => "127.0.0.1", :port => "6379"
-  end
-  it "two servers are equal if they share the same host and port" do
-    s1 = RedCluster::Server.new :host => "127.0.0.1", :port => "6379"
-    s2 = RedCluster::Server.new :host => "127.0.0.1", :port => "6379"
-    s1.should == s2
   end
 end
 

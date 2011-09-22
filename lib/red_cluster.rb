@@ -3,61 +3,46 @@ require 'zlib'
 require 'set'
 
 class RedCluster
-  class Server
-    attr_reader :host, :port
-    def initialize(params = {})
-      @host, @port = params[:host], params[:port].to_i
-      @redis = Redis.new :host => @host, :port => @port
-    end
-    def cnx
-      @redis
-    end
-    def ==(other)
-      @host == other.host && @port == other.port
-    end
-  end
-end
-
-class RedCluster
-  KEY_OPS = %W{del exists expire expireat keys move object persists randomkey rename renamenx sort ttl type}.map(&:to_sym)
-  SINGLE_KEY_KEY_OPS = %W{del exists expire expireat move object persists sort ttl type}.map(&:to_sym)
-
-  STRING_OPS = %W{append decr decrby get getbit getrange getset incr incrby mget mset msetnx set setbit setex setnx setrange strlen}.map(&:to_sym)
-  HASH_OPS = %W{hdel hexists hget hgetall hincrby hkeys hlen hmget hmset hset hsetnx hvals}.map(&:to_sym)
-
-  LIST_OPS = %W{blpop brpop brpoplpush lindex linsert llen lpop lpush lpushx lrange lrem lset ltrim rpop rpoplpush rpush rpushx}.map(&:to_sym)
-  SINGLE_KEY_LIST_OPS = %W{blpop brpop lindex linsert llen lpop lpush lpushx lrange lrem lset ltrim rpop rpush rpushx}.map(&:to_sym)
-
-  SET_OPS = %W{sadd scard sdiff sdiffstore sinter sinterstore sismember smembers smove spop srandmember srem sunion sunionstore}.map(&:to_sym)
-  SINGLE_KEY_SET_OPS = %W{sadd scard sismember smembers spop srandmember srem}.map(&:to_sym)
-
-  SORTED_SET_OPS = %W{zadd zcard zcount zincrby zinterstore zrange zrangebyscore zrank zrem zremrangebyrank zremrangebyscore zrevrange zrevrangebyscore zrevrank zscore zunionstore}.map(&:to_sym)
-  SINGLE_KEY_SORTED_SET_OPS = %W{zadd zcard zcount zincrby zrange zrangebyscore zrank zrem zremrangebyrank zremrangebyscore zrevrange zrevrangebyscore zrevrank zscore}.map(&:to_sym)
-
-
-  SINGLE_KEY_OPS = SINGLE_KEY_KEY_OPS + STRING_OPS + HASH_OPS + SINGLE_KEY_LIST_OPS + SINGLE_KEY_SET_OPS + SINGLE_KEY_SORTED_SET_OPS
-
   attr_reader :servers
+
   def initialize(servers = [])
     @servers = servers.map { |server| Server.new server }
   end
 
+  KEY_OPS                   = %W{del exists expire expireat keys move object persists randomkey rename renamenx sort ttl type}.map(&:to_sym)
+  SINGLE_KEY_KEY_OPS        = %W{del exists expire expireat move object persists sort ttl type}.map(&:to_sym)
+
+  STRING_OPS                = %W{append decr decrby get getbit getrange getset incr incrby mget mset msetnx set setbit setex setnx setrange strlen}.map(&:to_sym)
+  HASH_OPS                  = %W{hdel hexists hget hgetall hincrby hkeys hlen hmget hmset hset hsetnx hvals}.map(&:to_sym)
+
+  LIST_OPS                  = %W{blpop brpop brpoplpush lindex linsert llen lpop lpush lpushx lrange lrem lset ltrim rpop rpoplpush rpush rpushx}.map(&:to_sym)
+  SINGLE_KEY_LIST_OPS       = %W{blpop brpop lindex linsert llen lpop lpush lpushx lrange lrem lset ltrim rpop rpush rpushx}.map(&:to_sym)
+
+  SET_OPS                   = %W{sadd scard sdiff sdiffstore sinter sinterstore sismember smembers smove spop srandmember srem sunion sunionstore}.map(&:to_sym)
+  SINGLE_KEY_SET_OPS        = %W{sadd scard sismember smembers spop srandmember srem}.map(&:to_sym)
+
+  SORTED_SET_OPS            = %W{zadd zcard zcount zincrby zinterstore zrange zrangebyscore zrank zrem zremrangebyrank zremrangebyscore zrevrange zrevrangebyscore zrevrank zscore zunionstore}.map(&:to_sym)
+  SINGLE_KEY_SORTED_SET_OPS = %W{zadd zcard zcount zincrby zrange zrangebyscore zrank zrem zremrangebyrank zremrangebyscore zrevrange zrevrangebyscore zrevrank zscore}.map(&:to_sym)
+
+
+  SINGLE_KEY_OPS            = SINGLE_KEY_KEY_OPS + STRING_OPS + HASH_OPS + SINGLE_KEY_LIST_OPS + SINGLE_KEY_SET_OPS + SINGLE_KEY_SORTED_SET_OPS
+
   def keys(pattern)
     @servers.map do |server|
-      server.cnx.keys pattern
+      server.keys pattern
     end.flatten
   end
 
   def flushall
-    @servers.each { |server| server.cnx.flushall }
+    @servers.each { |server| server.flushall }
     "OK"
   end
 
   def randomkey
-    servers_with_keys_in_them  = @servers.select { |server| server.cnx.randomkey != nil }
+    servers_with_keys_in_them  = @servers.select { |server| server.randomkey != nil }
     idx = (rand * servers_with_keys_in_them.count).to_i
     rand_server = servers_with_keys_in_them[idx]
-    rand_server && rand_server.cnx.randomkey
+    rand_server && rand_server.randomkey
   end
 
   def rename(key, new_key)
@@ -135,7 +120,7 @@ class RedCluster
     if SINGLE_KEY_OPS.include?(method.to_sym)
       key = args.first
       server = server_for_key key
-      server.cnx.send method, *args
+      server.send method, *args
     else
       raise "Unsupported operation: #{method}"
     end
@@ -144,5 +129,17 @@ class RedCluster
   private
   def server_for_key(key)
     @servers[Zlib.crc32(key) % @servers.size]
+  end
+
+  class Server
+    attr_reader :host, :port
+    def initialize(params = {})
+      @host, @port = params[:host], params[:port].to_i
+      @redis = Redis.new :host => @host, :port => @port
+    end
+
+    def method_missing(method, *args)
+      @redis.send method, *args
+    end
   end
 end
