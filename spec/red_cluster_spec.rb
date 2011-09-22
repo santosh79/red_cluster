@@ -157,5 +157,22 @@ describe RedCluster do
       rc.get("foo_new").should == "bar"
     end
   end
+
+  context "#multi-exec" do
+    it "it works" do
+      rc.get("foo").should_not be
+      rc.get("baz").should_not be
+      rc.multi
+      rc.set "foo", "bar"
+      rc.incr "baz"
+      rc.exec
+      rc.get("foo").should == "bar"
+      rc.get("baz").should == "1"
+    end
+  end
+
+  context "bgsave" do
+    xit "it works"
+  end
 end
 

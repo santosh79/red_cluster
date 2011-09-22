@@ -27,6 +27,8 @@ class RedCluster
 
   SINGLE_KEY_OPS            = SINGLE_KEY_KEY_OPS + STRING_OPS + HASH_OPS + SINGLE_KEY_LIST_OPS + SINGLE_KEY_SET_OPS + SINGLE_KEY_SORTED_SET_OPS
 
+  SERVER_OPS                = %W{multi exec}.map(&:to_sym)
+
   def keys(pattern)
     @servers.map do |server|
       server.keys pattern
@@ -36,6 +38,14 @@ class RedCluster
   def flushall
     @servers.each { |server| server.flushall }
     "OK"
+  end
+
+  def multi
+    @servers.map(&:multi)
+  end
+
+  def exec
+    @servers.map(&:exec)
   end
 
   def randomkey
