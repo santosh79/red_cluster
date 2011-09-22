@@ -75,23 +75,23 @@ class RedCluster
 
   def rename(key, new_key)
     raise RuntimeError, "ERR source and destination objects are the same" if key == new_key
-    raise RuntimeError, "ERR no such key" unless self.exists(key)
-    val = self.get key
-    self.del key
-    self.set new_key, val
+    raise RuntimeError, "ERR no such key" unless exists(key)
+    val = get key
+    del key
+    set new_key, val
   end
 
   def rpoplpush(src_list, target_list)
-    val = self.rpop src_list
+    val = rpop src_list
     return unless val
-    self.lpush target_list, val
+    lpush target_list, val
     val
   end
 
   def brpoplpush(src_list, target_list, timeout)
-    val = self.brpop src_list, timeout
+    val = brpop src_list, timeout
     return unless val
-    self.lpush target_list, val
+    lpush target_list, val
     val
   end
 
@@ -149,17 +149,17 @@ class RedCluster
   end
 
   def perform_store_strategy(strategy, destination, *sets)
-    self.del destination
-    self.send(strategy, *sets).each do |entry|
-      self.sadd destination, entry
+    del destination
+    send(strategy, *sets).each do |entry|
+      sadd destination, entry
     end
-    self.scard destination
+    scard destination
   end
 
   def perform_set_strategy(strategy, *sets)
-    first_set = Set.new(self.smembers(sets.first))
+    first_set = Set.new(smembers(sets.first))
     sets[1..-1].inject(first_set) do |inter_set, set|
-      inter_set.send(strategy,(Set.new(self.smembers(set))))
+      inter_set.send(strategy, (Set.new(smembers(set))))
     end.entries
   end
 
@@ -168,6 +168,7 @@ end
 class RedCluster
   class Server
     attr_reader :host, :port
+
     def initialize(cluster, params = {})
       @host, @port = params[:host], params[:port].to_i
       @redis = Redis.new :host => @host, :port => @port
@@ -181,7 +182,7 @@ class RedCluster
     end
 
     def exec
-      @in_multi = false
+      @in_multi = nil
       @redis.exec.map { |result| [@cmd_order_in_multi.shift, result] }
     end
 

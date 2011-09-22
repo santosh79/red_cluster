@@ -227,5 +227,37 @@ describe RedCluster do
       rc.select(10).should == "OK"
     end
   end
+
+  context "#auth" do
+    xit "works"
+  end
+
+  context "#discard" do
+    xit "works"
+  end
+
+  context "#watch" do
+    xit "works"
+  end
+
+  context "#unwatch" do
+    xit "works"
+  end
+
+  context "#object" do
+    xit "works"
+  end
+
+  context "#sort" do
+    xit "works"
+  end
+
+  context "#zunionstore" do
+    xit "works"
+  end
+
+  context "#zinterstore" do
+    xit "works"
+  end
 end
 
