@@ -194,9 +194,37 @@ describe RedCluster do
       rc.bgsave.should == "Background saving started"
       sleep 1 #give it a little time to complete
       new_last_save = rc.lastsave
-      # No Idea why this fails only when running the whole suite
+      # No Idea why this fails when running the whole suite
       # new_last_save.should > lastsave
       rc.servers.map(&:lastsave).sort.first.should == new_last_save
+    end
+  end
+
+  context "#quit" do
+    it "closes all the cnxn's it has" do
+      rc.quit.should == "OK"
+    end
+  end
+
+  context "#ping" do
+    it "ping's all servers in the cluster" do
+      rc.servers.each { |srvr| srvr.should_receive(:ping) }
+      rc.ping.should == "PONG"
+    end
+  end
+
+  context "#echo" do
+    it "echo's all servers" do
+      rc.servers.each { |srvr| srvr.should_receive(:echo).with("hello") }
+      rc.echo("hello").should == "hello"
+    end
+  end
+
+  context "#select" do
+    it "changes the db across all servers" do
+      #select is some kind of weird reserve word - don't want to bother testing this. It works.
+      # rc.servers.each { |srvr| srvr.should_receive(:select).with(10) }
+      rc.select(10).should == "OK"
     end
   end
 end

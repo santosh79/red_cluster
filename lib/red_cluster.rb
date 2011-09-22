@@ -27,7 +27,14 @@ class RedCluster
 
   SINGLE_KEY_OPS            = SINGLE_KEY_KEY_OPS + STRING_OPS + HASH_OPS + SINGLE_KEY_LIST_OPS + SINGLE_KEY_SET_OPS + SINGLE_KEY_SORTED_SET_OPS
 
-  SERVER_OPS                = %W{multi exec bgsave lastsave flushall flushdb}.map(&:to_sym)
+  SERVER_OPS                = %W{multi exec bgsave lastsave flushall flushdb quit ping echo select}.map(&:to_sym)
+
+  def flushdb; @servers.map(&:flushdb); end
+  def multi; @servers.map(&:multi); end
+  def quit; @servers.map(&:quit); "OK"; end
+  def ping; @servers.map(&:ping); "PONG"; end
+  def echo(msg); @servers.each {|srvr| srvr.echo(msg) }; msg; end
+  def select(db); @servers.each {|srvr| srvr.select(db) }; "OK"; end
 
   def keys(pattern)
     @servers.map do |server|
@@ -39,9 +46,6 @@ class RedCluster
     @servers.each { |server| server.flushall }
     "OK"
   end
-
-  def flushdb; @servers.map(&:flushdb); end
-  def multi; @servers.map(&:multi); end
 
   def exec
     @multi_count = nil
