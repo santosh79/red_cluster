@@ -75,6 +75,7 @@ class RedCluster
   end
 
   def sdiffstore(destination, *sets)
+    self.del destination
     self.sdiff(*sets).each do |entry|
       self.sadd destination, entry
     end
@@ -89,6 +90,7 @@ class RedCluster
   end
 
   def sinterstore(destination, *sets)
+    self.del destination
     self.sinter(*sets).each do |entry|
       self.sadd destination, entry
     end
@@ -102,6 +104,7 @@ class RedCluster
   end
 
   def sunionstore(destination, *sets)
+    self.del destination
     self.sunion(*sets).each do |entry|
       self.sadd destination, entry
     end

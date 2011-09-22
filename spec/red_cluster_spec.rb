@@ -108,8 +108,10 @@ describe RedCluster do
     end
 
     it "doesn't store the destination if the diff yielded no results" do
+      rc.sadd "result_set", 1
       rc.sinterstore("result_set", "unknown_set", "set_two").should == 0
       rc.smembers("result_set").should == []
+      rc.exists("result_set").should_not be
     end
   end
 
@@ -133,8 +135,10 @@ describe RedCluster do
     end
 
     it "doesn't store the destination if the diff yielded no results" do
+      rc.sadd "result_set", 1
       rc.sunionstore("result_set", "unknown_set", "set_two").should == 0
       rc.smembers("result_set").should == []
+      rc.exists("result_set").should_not be
     end
   end
 
