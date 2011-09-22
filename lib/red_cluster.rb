@@ -49,7 +49,7 @@ class RedCluster
     #We'll get back a deeply nested array of arrays of the kind
     #[[3, 30], [10, 1]], [1, "OK"]] - where the first element in each leaf array is the RANK and the second is the result
     #We need to return back the results sorted by rank. So in the above case it would be
-    #["OK", 30, 1]. Ruby's full-LISP toolbox to the resque
+    #["OK", 30, 1]. Ruby's full-LISP toolbox to the rescue
     Hash[*exec_results.flatten].sort.map(&:last)
   end
 
