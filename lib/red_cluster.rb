@@ -44,19 +44,13 @@ class RedCluster
   def multi; @servers.map(&:multi); end
 
   def exec
-    clear_multi_count
-    exec_results = []
-    @servers.each do |server|
-      results = server.exec
-      results.each do |idx, res|
-        exec_results[idx] = res
-      end
-    end
-    exec_results
-  end
-
-  def clear_multi_count
-    @multi_count = 0
+    @multi_count = nil
+    exec_results = @servers.map(&:exec)
+    #We'll get back a deeply nested array of arrays of the kind
+    #[[3, 30], [10, 1]], [1, "OK"]] - where the first element in each leaf array is the RANK and the second is the result
+    #We need to return back the results sorted by rank. So in the above case it would be
+    #["OK", 30, 1]. Ruby's full-LISP toolbox to the resque
+    Hash[*exec_results.flatten].sort.map(&:last)
   end
 
   def bgsave
@@ -129,10 +123,6 @@ class RedCluster
     raise "Operation Not Supported -- Yet!"
   end
 
-  def multi_count
-    @multi_count ||= -1
-    @multi_count += 1
-  end
 
   def method_missing(method, *args)
     if SINGLE_KEY_OPS.include?(method.to_sym)
@@ -147,6 +137,11 @@ class RedCluster
   private
   def server_for_key(key)
     @servers[Zlib.crc32(key) % @servers.size]
+  end
+
+  def multi_count
+    @multi_count ||= -1
+    @multi_count += 1
   end
 
   def perform_store_strategy(strategy, destination, *sets)
@@ -177,18 +172,18 @@ class RedCluster
 
     def multi
       @in_multi = true
-      @command_order_in_multi = []
+      @cmd_order_in_multi = []
       @redis.multi
     end
 
     def exec
       @in_multi = false
-      @redis.exec.map { |result| [@command_order_in_multi.shift, result] }
+      @redis.exec.map { |result| [@cmd_order_in_multi.shift, result] }
     end
 
     def method_missing(method, *args)
       if @in_multi
-        @command_order_in_multi << @my_cluster.multi_count
+        @cmd_order_in_multi << @my_cluster.send(:multi_count)
       end
       @redis.send method, *args
     end
