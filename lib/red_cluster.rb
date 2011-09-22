@@ -68,47 +68,27 @@ class RedCluster
   end
 
   def sdiff(*sets)
-    first_set = Set.new(self.smembers(sets.first))
-    sets[1..-1].inject(first_set) do |diff_set, set|
-      diff_set.difference(Set.new(self.smembers(set)))
-    end.entries
-  end
-
-  def sdiffstore(destination, *sets)
-    self.del destination
-    self.sdiff(*sets).each do |entry|
-      self.sadd destination, entry
-    end
-    self.scard destination
+    perform_set_strategy :difference, *sets
   end
 
   def sinter(*sets)
-    first_set = Set.new(self.smembers(sets.first))
-    sets[1..-1].inject(first_set) do |inter_set, set|
-      inter_set.intersection(Set.new(self.smembers(set)))
-    end.entries
-  end
-
-  def sinterstore(destination, *sets)
-    self.del destination
-    self.sinter(*sets).each do |entry|
-      self.sadd destination, entry
-    end
-    self.scard destination
+    perform_set_strategy :intersection, *sets
   end
 
   def sunion(*sets)
-    sets[0..-1].inject(Set.new) do |union_set, set|
-      union_set.union(Set.new(self.smembers(set)))
-    end.entries
+    perform_set_strategy :union, *sets
+  end
+
+  def sinterstore(destination, *sets)
+    perform_store_strategy :sinter, destination, *sets
   end
 
   def sunionstore(destination, *sets)
-    self.del destination
-    self.sunion(*sets).each do |entry|
-      self.sadd destination, entry
-    end
-    self.scard destination
+    perform_store_strategy :sunion, destination, *sets
+  end
+
+  def sdiffstore(destination, *sets)
+    perform_store_strategy :sdiff, destination, *sets
   end
 
   def zinterstore(*sorted_sets)
@@ -144,5 +124,20 @@ class RedCluster
     def method_missing(method, *args)
       @redis.send method, *args
     end
+  end
+
+  def perform_store_strategy(strategy, destination, *sets)
+    self.del destination
+    self.send(strategy, *sets).each do |entry|
+      self.sadd destination, entry
+    end
+    self.scard destination
+  end
+
+  def perform_set_strategy(strategy, *sets)
+    first_set = Set.new(self.smembers(sets.first))
+    sets[1..-1].inject(first_set) do |inter_set, set|
+      inter_set.send(strategy,(Set.new(self.smembers(set))))
+    end.entries
   end
 end
