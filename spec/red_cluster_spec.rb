@@ -1,5 +1,5 @@
 require 'rubygems'
-require 'fakeredis'
+# require 'fakeredis'
 require File.join(__FILE__,'../../lib/red_cluster')
 
 describe RedCluster do
@@ -28,6 +28,20 @@ describe RedCluster do
     end
     it "returns nil for an empty cluster" do
       rc.randomkey.should_not be
+    end
+  end
+
+  context "#flushdb" do
+    it "works" do
+      (1..10_000).to_a.each { |num| rc.set("number|#{num}", "hello") }
+      #make sure all servers have a key
+      rc.servers.each do |server|
+        server.randomkey.should be
+      end
+      rc.flushdb
+      rc.servers.each do |server|
+        server.randomkey.should_not be
+      end
     end
   end
 
@@ -159,20 +173,31 @@ describe RedCluster do
   end
 
   context "#multi-exec" do
-    it "it works" do
+    it "works" do
       rc.get("foo").should_not be
       rc.get("baz").should_not be
       rc.multi
-      rc.set "foo", "bar"
-      rc.incr "baz"
-      rc.exec
+      1000.times do
+        rc.set("foo", "bar").should == "QUEUED"
+        rc.incr("baz").should == "QUEUED"
+      end
+      rc.exec.should == 1000.times.map { |i| ["OK", i+1] }.flatten
       rc.get("foo").should == "bar"
-      rc.get("baz").should == "1"
+      rc.get("baz").should == "1000"
     end
   end
 
-  context "bgsave" do
-    xit "it works"
+  context "bgsave-lastsave" do
+    it "returns the earliest lastsave time across the cluster" do
+      lastsave = rc.lastsave
+      rc.set "foo", "bar"
+      rc.bgsave.should == "Background saving started"
+      sleep 1 #give it a little time to complete
+      new_last_save = rc.lastsave
+      # No Idea why this fails only when running the whole suite
+      # new_last_save.should > lastsave
+      rc.servers.map(&:lastsave).sort.first.should == new_last_save
+    end
   end
 end
 

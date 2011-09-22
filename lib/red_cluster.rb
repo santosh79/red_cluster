@@ -6,7 +6,7 @@ class RedCluster
   attr_reader :servers
 
   def initialize(servers = [])
-    @servers = servers.map { |server| Server.new server }
+    @servers = servers.map { |server| Server.new self, server }
   end
 
   KEY_OPS                   = %W{del exists expire expireat keys move object persists randomkey rename renamenx sort ttl type}.map(&:to_sym)
@@ -27,7 +27,7 @@ class RedCluster
 
   SINGLE_KEY_OPS            = SINGLE_KEY_KEY_OPS + STRING_OPS + HASH_OPS + SINGLE_KEY_LIST_OPS + SINGLE_KEY_SET_OPS + SINGLE_KEY_SORTED_SET_OPS
 
-  SERVER_OPS                = %W{multi exec}.map(&:to_sym)
+  SERVER_OPS                = %W{multi exec bgsave lastsave flushall flushdb}.map(&:to_sym)
 
   def keys(pattern)
     @servers.map do |server|
@@ -40,12 +40,32 @@ class RedCluster
     "OK"
   end
 
-  def multi
-    @servers.map(&:multi)
-  end
+  def flushdb; @servers.map(&:flushdb); end
+  def multi; @servers.map(&:multi); end
 
   def exec
-    @servers.map(&:exec)
+    clear_multi_count
+    exec_results = []
+    @servers.each do |server|
+      results = server.exec
+      results.each do |idx, res|
+        exec_results[idx] = res
+      end
+    end
+    exec_results
+  end
+
+  def clear_multi_count
+    @multi_count = 0
+  end
+
+  def bgsave
+    @servers.map(&:bgsave)
+    "Background saving started"
+  end
+
+  def lastsave
+    @servers.map(&:lastsave).sort.first
   end
 
   def randomkey
@@ -109,6 +129,11 @@ class RedCluster
     raise "Operation Not Supported -- Yet!"
   end
 
+  def multi_count
+    @multi_count ||= -1
+    @multi_count += 1
+  end
+
   def method_missing(method, *args)
     if SINGLE_KEY_OPS.include?(method.to_sym)
       key = args.first
@@ -124,18 +149,6 @@ class RedCluster
     @servers[Zlib.crc32(key) % @servers.size]
   end
 
-  class Server
-    attr_reader :host, :port
-    def initialize(params = {})
-      @host, @port = params[:host], params[:port].to_i
-      @redis = Redis.new :host => @host, :port => @port
-    end
-
-    def method_missing(method, *args)
-      @redis.send method, *args
-    end
-  end
-
   def perform_store_strategy(strategy, destination, *sets)
     self.del destination
     self.send(strategy, *sets).each do |entry|
@@ -149,5 +162,35 @@ class RedCluster
     sets[1..-1].inject(first_set) do |inter_set, set|
       inter_set.send(strategy,(Set.new(self.smembers(set))))
     end.entries
+  end
+
+end
+
+class RedCluster
+  class Server
+    attr_reader :host, :port
+    def initialize(cluster, params = {})
+      @host, @port = params[:host], params[:port].to_i
+      @redis = Redis.new :host => @host, :port => @port
+      @my_cluster = cluster
+    end
+
+    def multi
+      @in_multi = true
+      @command_order_in_multi = []
+      @redis.multi
+    end
+
+    def exec
+      @in_multi = false
+      @redis.exec.map { |result| [@command_order_in_multi.shift, result] }
+    end
+
+    def method_missing(method, *args)
+      if @in_multi
+        @command_order_in_multi << @my_cluster.multi_count
+      end
+      @redis.send method, *args
+    end
   end
 end
