@@ -158,8 +158,8 @@ class RedCluster
 
   def perform_set_strategy(strategy, *sets)
     first_set = Set.new(smembers(sets.first))
-    sets[1..-1].inject(first_set) do |inter_set, set|
-      inter_set.send(strategy, (Set.new(smembers(set))))
+    sets[1..-1].inject(first_set) do |accum_set, set|
+      accum_set.send(strategy, (Set.new(smembers(set))))
     end.entries
   end
 
