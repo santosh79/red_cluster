@@ -77,6 +77,11 @@ describe RedCluster do
     end
   end
 
+  context "#smove" do
+    it "returns false if the first set does not exist or does not have the member"
+    it "returns true if the first set had the member"
+  end
+
   context "#sdiffstore" do
     it "stores the diff in the destination" do
       (1..10).to_a.each { |num| rc.sadd "set_one", num }
