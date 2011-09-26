@@ -268,61 +268,37 @@ describe RedCluster do
   end
 
   context "#zunionstore" do
-    it "without weights and no aggregate function" do
+    before do
       rc.zadd "my_zset_one", 1, "key_one"
-      rc.zadd "my_zset_two", 1, "key_one"
-
+      rc.zadd "my_zset_two", 10, "key_one"
       rc.zadd "my_zset_one", 2, "key_two"
-      rc.zadd "my_zset_two", 2, "key_two"
+      rc.zadd "my_zset_two", 20, "key_two"
+      rc.zadd "my_zset_two", 30, "key_three"
+    end
 
-      rc.zadd "my_zset_two", 3, "key_three"
-
+    it "without weights and no aggregate function" do
       rc.zunionstore("result", ["my_zset_one", "my_zset_two"]).should == 3
-      rc.zscore("result", "key_one").to_i.should == 2
-      rc.zscore("result", "key_two").to_i.should == 4
-      rc.zscore("result", "key_three").to_i.should == 3
+      rc.zscore("result", "key_one").to_i.should == 11
+      rc.zscore("result", "key_two").to_i.should == 22
+      rc.zscore("result", "key_three").to_i.should == 30
     end
 
     it "with weights" do
-      rc.zadd "my_zset_one", 1, "key_one"
-      rc.zadd "my_zset_two", 1, "key_one"
-
-      rc.zadd "my_zset_one", 2, "key_two"
-      rc.zadd "my_zset_two", 2, "key_two"
-
-      rc.zadd "my_zset_two", 3, "key_three"
-
       rc.zunionstore("result", ["my_zset_one", "my_zset_two"], :weights => [10, 1]).should == 3
-      rc.zscore("result", "key_one").to_i.should == (10*1 + 1)
-      rc.zscore("result", "key_two").to_i.should == (10*2 + 2)
-      rc.zscore("result", "key_three").to_i.should == (10*0 + 3)
+      rc.zscore("result", "key_one").to_i.should == (10*1 + 10)
+      rc.zscore("result", "key_two").to_i.should == (10*2 + 20)
+      rc.zscore("result", "key_three").to_i.should == (10*0 + 30)
     end
 
     context "ZUNIONSTORE with AGGREGATE" do
       it "sums" do
-        rc.zadd "my_zset_one", 1, "key_one"
-        rc.zadd "my_zset_two", 1, "key_one"
-
-        rc.zadd "my_zset_one", 2, "key_two"
-        rc.zadd "my_zset_two", 2, "key_two"
-
-        rc.zadd "my_zset_two", 3, "key_three"
-
         rc.zunionstore("result", ["my_zset_one", "my_zset_two"], :weights => [10, 1], :aggregate => :sum).should == 3
-        rc.zscore("result", "key_one").to_i.should == (10*1 + 1)
-        rc.zscore("result", "key_two").to_i.should == (10*2 + 2)
-        rc.zscore("result", "key_three").to_i.should == (10*0 + 3)
+        rc.zscore("result", "key_one").to_i.should == (10*1 + 10)
+        rc.zscore("result", "key_two").to_i.should == (10*2 + 20)
+        rc.zscore("result", "key_three").to_i.should == (10*0 + 30)
       end
 
       it "mins" do
-        rc.zadd "my_zset_one", 1, "key_one"
-        rc.zadd "my_zset_two", 10, "key_one"
-
-        rc.zadd "my_zset_one", 2, "key_two"
-        rc.zadd "my_zset_two", 20, "key_two"
-
-        rc.zadd "my_zset_two", 30, "key_three"
-
         rc.zunionstore("result", ["my_zset_one", "my_zset_two"], :weights => [5, 1], :aggregate => :min).should == 3
         rc.zscore("result", "key_one").to_i.should == 5
         rc.zscore("result", "key_two").to_i.should == 10
@@ -330,14 +306,6 @@ describe RedCluster do
       end
 
       it "max'es" do
-        rc.zadd "my_zset_one", 1, "key_one"
-        rc.zadd "my_zset_two", 10, "key_one"
-
-        rc.zadd "my_zset_one", 2, "key_two"
-        rc.zadd "my_zset_two", 20, "key_two"
-
-        rc.zadd "my_zset_two", 30, "key_three"
-
         rc.zunionstore("result", ["my_zset_one", "my_zset_two"], :aggregate => :max).should == 3
         rc.zscore("result", "key_one").to_i.should == 10
         rc.zscore("result", "key_two").to_i.should == 20
