@@ -269,42 +269,86 @@ describe RedCluster do
 
   context "#zunionstore" do
     it "without weights and no aggregate function" do
-      rc.zadd "foo", 1, "s1"
-      rc.zadd "bar", 2, "s2"
-      rc.zadd "foo", 3, "s3"
-      rc.zadd "bar", 4, "s4"
+      rc.zadd "my_zset_one", 1, "key_one"
+      rc.zadd "my_zset_two", 1, "key_one"
 
-      rc.zunionstore("foobar", ["foo", "bar"]).should == 4
-      rc.zrange("foobar", 0, -1).should ==["s1", "s2", "s3", "s4"]
+      rc.zadd "my_zset_one", 2, "key_two"
+      rc.zadd "my_zset_two", 2, "key_two"
+
+      rc.zadd "my_zset_two", 3, "key_three"
+
+      rc.zunionstore("result", ["my_zset_one", "my_zset_two"]).should == 3
+      rc.zscore("result", "key_one").to_i.should == 2
+      rc.zscore("result", "key_two").to_i.should == 4
+      rc.zscore("result", "key_three").to_i.should == 3
     end
 
     it "with weights" do
-      rc.zadd "foo", 1, "s1"
-      rc.zadd "foo", 3, "s3"
-      rc.zadd "bar", 20, "s2"
-      rc.zadd "bar", 40, "s4"
+      rc.zadd "my_zset_one", 1, "key_one"
+      rc.zadd "my_zset_two", 1, "key_one"
 
-      rc.zunionstore("foobar", ["foo", "bar"]).should == 4
-      rc.zrange("foobar", 0, -1).should == ["s1", "s3", "s2", "s4"]
+      rc.zadd "my_zset_one", 2, "key_two"
+      rc.zadd "my_zset_two", 2, "key_two"
 
-      rc.zunionstore("foobar", ["foo", "bar"], :weights => [10, 1] ).should == 4
-      rc.zrange("foobar", 0, -1).should == ["s1", "s2", "s3", "s4"]
+      rc.zadd "my_zset_two", 3, "key_three"
+
+      rc.zunionstore("result", ["my_zset_one", "my_zset_two"], :weights => [10, 1]).should == 3
+      rc.zscore("result", "key_one").to_i.should == (10*1 + 1)
+      rc.zscore("result", "key_two").to_i.should == (10*2 + 2)
+      rc.zscore("result", "key_three").to_i.should == (10*0 + 3)
     end
 
-    xit "ZUNIONSTORE with AGGREGATE" do
-      r.zadd "foo", 1, "s1"
-      r.zadd "foo", 2, "s2"
-      r.zadd "bar", 4, "s2"
-      r.zadd "bar", 3, "s3"
+    context "ZUNIONSTORE with AGGREGATE" do
+      it "sums" do
+        rc.zadd "my_zset_one", 1, "key_one"
+        rc.zadd "my_zset_two", 1, "key_one"
 
-      assert 3 == r.zunionstore("foobar", ["foo", "bar"])
-      assert ["s1", "s3", "s2"] == r.zrange("foobar", 0, -1)
+        rc.zadd "my_zset_one", 2, "key_two"
+        rc.zadd "my_zset_two", 2, "key_two"
 
-      assert 3 == r.zunionstore("foobar", ["foo", "bar"], :aggregate => :min)
-      assert ["s1", "s2", "s3"] == r.zrange("foobar", 0, -1)
+        rc.zadd "my_zset_two", 3, "key_three"
 
-      assert 3 == r.zunionstore("foobar", ["foo", "bar"], :aggregate => :max)
-      assert ["s1", "s3", "s2"] == r.zrange("foobar", 0, -1)
+        rc.zunionstore("result", ["my_zset_one", "my_zset_two"], :weights => [10, 1], :aggregate => :sum).should == 3
+        rc.zscore("result", "key_one").to_i.should == (10*1 + 1)
+        rc.zscore("result", "key_two").to_i.should == (10*2 + 2)
+        rc.zscore("result", "key_three").to_i.should == (10*0 + 3)
+      end
+
+      it "mins" do
+        rc.zadd "my_zset_one", 1, "key_one"
+        rc.zadd "my_zset_two", 10, "key_one"
+
+        rc.zadd "my_zset_one", 2, "key_two"
+        rc.zadd "my_zset_two", 20, "key_two"
+
+        rc.zadd "my_zset_two", 30, "key_three"
+
+        rc.zunionstore("result", ["my_zset_one", "my_zset_two"], :weights => [5, 1], :aggregate => :min).should == 3
+        rc.zscore("result", "key_one").to_i.should == 5
+        rc.zscore("result", "key_two").to_i.should == 10
+        rc.zscore("result", "key_three").to_i.should == 30
+      end
+
+      it "max'es" do
+        rc.zadd "my_zset_one", 1, "key_one"
+        rc.zadd "my_zset_two", 10, "key_one"
+
+        rc.zadd "my_zset_one", 2, "key_two"
+        rc.zadd "my_zset_two", 20, "key_two"
+
+        rc.zadd "my_zset_two", 30, "key_three"
+
+        rc.zunionstore("result", ["my_zset_one", "my_zset_two"], :aggregate => :max).should == 3
+        rc.zscore("result", "key_one").to_i.should == 10
+        rc.zscore("result", "key_two").to_i.should == 20
+        rc.zscore("result", "key_three").to_i.should == 30
+      end
+
+      it "raise an Error with an invalid aggregate function" do
+        rc.zadd "my_zset_one", 1, "key_one"
+        rc.zadd "my_zset_two", 10, "key_one"
+        expect { rc.zunionstore("result", ["my_zset_one", "my_zset_two"], :aggregate => :blahdiblah) }.to raise_error
+      end
     end
   end
 

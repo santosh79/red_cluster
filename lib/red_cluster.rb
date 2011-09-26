@@ -141,7 +141,21 @@ class RedCluster
     end
     del destination
     union_set.entries.each do |entry|
-      score = input_sets.map { |input_set| [input_set, zscore(input_set, entry)] }.reject { |is, zscr| zscr == nil }.map { |is,zscr| zscr.to_i * weights.fetch(is) { 1 } }.inject(0) { |sum, e_score| sum += e_score.to_i }
+      score_of_input_sets = input_sets.map do |input_set| 
+        [input_set, zscore(input_set, entry)] 
+      end.reject do |is, zscr| 
+        zscr == nil 
+      end.map do |is,zscr| 
+        zscr.to_i * weights.fetch(is) { 1 } 
+      end
+      aggregate_function = (options[:aggregate] || :sum)
+      score = if aggregate_function == :sum
+                score_of_input_sets.inject(0) { |sum, e_score| sum += e_score.to_i }
+              elsif [:min, :max].include?(aggregate_function)
+                score_of_input_sets.send aggregate_function
+              else
+                raise "ERR syntax error"
+              end
       zadd destination, score, entry
     end
     zcard destination
