@@ -29,10 +29,10 @@ class RedCluster
 
   SERVER_OPS                = %W{multi exec bgsave lastsave flushall flushdb quit ping echo select}.map(&:to_sym)
 
-  def flushdb; @servers.map(&:flushdb); end
-  def multi; @servers.map(&:multi); end
-  def quit; @servers.map(&:quit); "OK"; end
-  def ping; @servers.map(&:ping); "PONG"; end
+  def flushdb; @servers.each(&:flushdb); end
+  def multi; @servers.each(&:multi); end
+  def quit; @servers.each(&:quit); "OK"; end
+  def ping; @servers.each(&:ping); "PONG"; end
   def echo(msg); @servers.each {|srvr| srvr.echo(msg) }; msg; end
   def select(db); @servers.each {|srvr| srvr.select(db) }; "OK"; end
 
@@ -68,7 +68,7 @@ class RedCluster
   end
 
   def bgsave
-    @servers.map(&:bgsave)
+    @servers.each(&:bgsave)
     "Background saving started"
   end
 
