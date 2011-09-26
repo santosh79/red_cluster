@@ -47,6 +47,15 @@ class RedCluster
     "OK"
   end
 
+  def smove(src, destination, member)
+    if sismember src, member
+      sadd destination, member
+      !!srem(src, member)
+    else
+      false
+    end
+  end
+
   def exec
     @multi_count = nil
     exec_results = @servers.map(&:exec)

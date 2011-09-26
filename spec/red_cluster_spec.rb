@@ -78,8 +78,18 @@ describe RedCluster do
   end
 
   context "#smove" do
-    it "returns false if the first set does not exist or does not have the member"
-    it "returns true if the first set had the member"
+    it "returns false if the first set does not exist or does not have the member" do
+      rc.smove("non_existent_source", "destination", "foo").should == false
+      rc.sadd "source", "bar"
+      rc.smove("source", "destination", "foo").should == false
+    end
+
+    it "returns true if the first set had the member" do
+      rc.sadd "source", "foo"
+      rc.smove("source", "destination", "foo").should == true
+      rc.sismember("source", "foo").should == false
+      rc.sismember("destination", "foo").should == true
+    end
   end
 
   context "#sdiffstore" do
