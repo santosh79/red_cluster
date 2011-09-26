@@ -50,7 +50,8 @@ class RedCluster
   def smove(src, destination, member)
     if sismember src, member
       sadd destination, member
-      !!srem(src, member)
+      srem src, member
+      true
     else
       false
     end

@@ -66,7 +66,7 @@ describe RedCluster do
 
   context "#keys" do
     it 'scans across the cluster' do
-      (1..1000).to_a.each { |num| rc.set("number|#{num}", "hello") }
+      (1..100).to_a.each { |num| rc.set("number|#{num}", "hello") }
       first_servers_keys = rc.servers.first.keys("*")
       first_servers_keys.size.should > 0
       second_servers_keys = rc.servers.last.keys("*")
@@ -192,13 +192,13 @@ describe RedCluster do
       rc.get("foo").should_not be
       rc.get("baz").should_not be
       rc.multi
-      1000.times do
+      100.times do
         rc.set("foo", "bar").should == "QUEUED"
         rc.incr("baz").should == "QUEUED"
       end
-      rc.exec.should == 1000.times.map { |i| ["OK", i+1] }.flatten
+      rc.exec.should == 100.times.map { |i| ["OK", i+1] }.flatten
       rc.get("foo").should == "bar"
-      rc.get("baz").should == "1000"
+      rc.get("baz").should == "100"
     end
   end
 
