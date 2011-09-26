@@ -268,7 +268,44 @@ describe RedCluster do
   end
 
   context "#zunionstore" do
-    xit "works"
+    it "without weights and no aggregate function" do
+      rc.zadd "foo", 1, "s1"
+      rc.zadd "bar", 2, "s2"
+      rc.zadd "foo", 3, "s3"
+      rc.zadd "bar", 4, "s4"
+
+      rc.zunionstore("foobar", ["foo", "bar"]).should == 4
+      rc.zrange("foobar", 0, -1).should ==["s1", "s2", "s3", "s4"]
+    end
+
+    it "with weights" do
+      rc.zadd "foo", 1, "s1"
+      rc.zadd "foo", 3, "s3"
+      rc.zadd "bar", 20, "s2"
+      rc.zadd "bar", 40, "s4"
+
+      rc.zunionstore("foobar", ["foo", "bar"]).should == 4
+      rc.zrange("foobar", 0, -1).should == ["s1", "s3", "s2", "s4"]
+
+      rc.zunionstore("foobar", ["foo", "bar"], :weights => [10, 1] ).should == 4
+      rc.zrange("foobar", 0, -1).should == ["s1", "s2", "s3", "s4"]
+    end
+
+    xit "ZUNIONSTORE with AGGREGATE" do
+      r.zadd "foo", 1, "s1"
+      r.zadd "foo", 2, "s2"
+      r.zadd "bar", 4, "s2"
+      r.zadd "bar", 3, "s3"
+
+      assert 3 == r.zunionstore("foobar", ["foo", "bar"])
+      assert ["s1", "s3", "s2"] == r.zrange("foobar", 0, -1)
+
+      assert 3 == r.zunionstore("foobar", ["foo", "bar"], :aggregate => :min)
+      assert ["s1", "s2", "s3"] == r.zrange("foobar", 0, -1)
+
+      assert 3 == r.zunionstore("foobar", ["foo", "bar"], :aggregate => :max)
+      assert ["s1", "s3", "s2"] == r.zrange("foobar", 0, -1)
+    end
   end
 
   context "#zinterstore" do

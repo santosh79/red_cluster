@@ -133,8 +133,18 @@ class RedCluster
     raise "Operation Not Supported -- Yet!"
   end
 
-  def zunionstore(*sorted_sets)
-    raise "Operation Not Supported -- Yet!"
+  def zunionstore(destination, input_sets, options = {})
+    weights = Hash[input_sets.zip(Array(options[:weights]))].reject { |k,v| v == nil }
+    first_set = Set.new(zrange(input_sets.first, 0, -1))
+    union_set = input_sets[1..-1].inject(first_set) do |accum_set, set|
+      accum_set.union(Set.new(zrange(set, 0, -1)))
+    end
+    del destination
+    union_set.entries.each do |entry|
+      score = input_sets.map { |input_set| [input_set, zscore(input_set, entry)] }.reject { |is, zscr| zscr == nil }.map { |is,zscr| zscr.to_i * weights.fetch(is) { 1 } }.inject(0) { |sum, e_score| sum += e_score.to_i }
+      zadd destination, score, entry
+    end
+    zcard destination
   end
 
 
