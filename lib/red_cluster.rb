@@ -37,6 +37,19 @@ class RedCluster
   def echo(msg); @servers.each {|srvr| srvr.echo(msg) }; msg; end
   def select(db); @servers.each {|srvr| srvr.select(db) }; "OK"; end
 
+  def config(cmd, *args)
+    if cmd == :get
+      @servers.inject({}) do |result, srvr|
+        result.merge srvr.config(:get, *args)
+      end
+    elsif [:set, :resetstat].include?(cmd)
+      @servers.each { |srvr| srvr.config(cmd, *args) }
+      "OK"
+    else
+      raise "ERR CONFIG subcommand must be one of GET, SET, RESETSTAT"
+    end
+  end
+
   def keys(pattern)
     @servers.map do |server|
       server.keys pattern

@@ -243,6 +243,40 @@ describe RedCluster do
     end
   end
 
+  context "#config" do
+    context "#get" do
+      it "returns the config values across all servers" do
+        rc.config(:get, "*").should_not be_empty
+      end
+    end
+
+    context "#set" do
+      it "sets values across all servers" do
+        old_timeout = rc.config(:get, "timeout")["timeout"].to_i
+        old_timeout.should > 0
+        rc.config(:set, "timeout", 100).should == "OK"
+        rc.servers.each { |srvr| srvr.config(:get, "timeout")["timeout"].to_i.should == 100 }
+        rc.config(:set, "timeout", old_timeout).should == "OK"
+        rc.servers.each { |srvr| srvr.config(:get, "timeout")["timeout"].to_i.should == old_timeout }
+      end
+    end
+
+    context "#resetstat" do
+      it "resets stats across all servers" do
+        rc.flushall
+        rc.servers.each { |srvr| srvr.info["total_commands_processed"].to_i.should > 1 }
+        rc.config(:resetstat).should == "OK"
+        rc.servers.each { |srvr| srvr.info["total_commands_processed"].to_i.should == 1 }
+      end
+    end
+
+    context "#bad_command" do
+      it "raises an error" do
+        expect { rc.config(:bad_command) }.to raise_error(RuntimeError, "ERR CONFIG subcommand must be one of GET, SET, RESETSTAT")
+      end
+    end
+  end
+
   context "#auth" do
     xit "works"
   end
