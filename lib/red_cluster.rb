@@ -130,36 +130,12 @@ class RedCluster
     perform_store_strategy :sdiff, destination, *sets
   end
 
-  def zinterstore(*sorted_sets)
-    raise "Operation Not Supported -- Yet!"
+  def zinterstore(destination, input_sets, options = {})
+    perform_sorted_set_store_strategy :intersection, destination, input_sets, options
   end
 
   def zunionstore(destination, input_sets, options = {})
-    weights = Hash[input_sets.zip(Array(options[:weights]))].reject { |k,v| v == nil }
-    first_set = Set.new(zrange(input_sets.first, 0, -1))
-    union_set = input_sets[1..-1].inject(first_set) do |accum_set, set|
-      accum_set.union(Set.new(zrange(set, 0, -1)))
-    end
-    del destination
-    union_set.entries.each do |entry|
-      score_of_input_sets = input_sets.map do |input_set| 
-        [input_set, zscore(input_set, entry)] 
-      end.reject do |is, zscr|
-        zscr == nil 
-      end.map do |is,zscr|
-        zscr.to_i * weights.fetch(is) { 1 }
-      end
-      aggregate_function = (options[:aggregate] || :sum)
-      score = if aggregate_function == :sum
-                score_of_input_sets.inject(0) { |sum, e_score| sum += e_score.to_i }
-              elsif [:min, :max].include?(aggregate_function)
-                score_of_input_sets.send aggregate_function
-              else
-                raise "ERR syntax error"
-              end
-      zadd destination, score, entry
-    end
-    zcard destination
+    perform_sorted_set_store_strategy :union, destination, input_sets, options
   end
 
 
@@ -196,6 +172,34 @@ class RedCluster
     sets[1..-1].inject(first_set) do |accum_set, set|
       accum_set.send(strategy, (Set.new(smembers(set))))
     end.entries
+  end
+
+  def perform_sorted_set_store_strategy(strategy, destination, input_sets, options)
+    weights = Hash[input_sets.zip(Array(options[:weights]))].reject { |k,v| v == nil }
+    first_set = Set.new(zrange(input_sets.first, 0, -1))
+    accum_set = input_sets[0..-1].inject(first_set) do |accmltr, set|
+      accmltr.send(strategy, Set.new(zrange(set, 0, -1)))
+    end
+    del destination
+    accum_set.entries.each do |entry|
+      score_of_input_sets = input_sets.map do |input_set| 
+        [input_set, zscore(input_set, entry)] 
+      end.reject do |is, zscr|
+        zscr == nil 
+      end.map do |is,zscr|
+        zscr.to_i * weights.fetch(is) { 1 }
+      end
+      aggregate_function = (options[:aggregate] || :sum)
+      score = if aggregate_function == :sum
+                score_of_input_sets.inject(0) { |sum, e_score| sum += e_score.to_i }
+              elsif [:min, :max].include?(aggregate_function)
+                score_of_input_sets.send aggregate_function
+              else
+                raise "ERR syntax error"
+              end
+      zadd destination, score, entry
+    end
+    zcard destination
   end
 
 end

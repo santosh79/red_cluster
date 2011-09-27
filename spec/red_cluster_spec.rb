@@ -267,6 +267,55 @@ describe RedCluster do
     xit "works"
   end
 
+  context "#zinterstore" do
+    before do
+      rc.zadd "my_zset_one", 1, "key_one"
+      rc.zadd "my_zset_two", 10, "key_one"
+      rc.zadd "my_zset_one", 2, "key_two"
+      rc.zadd "my_zset_two", 20, "key_two"
+      rc.zadd "my_zset_two", 30, "key_three"
+    end
+
+    it "without weights and no aggregate function" do
+      rc.zinterstore("result", ["my_zset_one", "my_zset_two"]).should == 2
+      rc.zscore("result", "key_one").to_i.should == 11
+      rc.zscore("result", "key_two").to_i.should == 22
+      rc.zscore("result", "key_three").should_not be
+    end
+
+    it "with weights" do
+      rc.zinterstore("result", ["my_zset_one", "my_zset_two"], :weights => [10, 1]).should == 2
+      rc.zscore("result", "key_one").to_i.should == (10*1 + 10)
+      rc.zscore("result", "key_two").to_i.should == (10*2 + 20)
+    end
+
+    context "with AGGREGATE" do
+      it "sums" do
+        rc.zinterstore("result", ["my_zset_one", "my_zset_two"], :weights => [10, 1], :aggregate => :sum).should == 2
+        rc.zscore("result", "key_one").to_i.should == (10*1 + 10)
+        rc.zscore("result", "key_two").to_i.should == (10*2 + 20)
+      end
+
+      it "mins" do
+        rc.zinterstore("result", ["my_zset_one", "my_zset_two"], :weights => [5, 1], :aggregate => :min).should == 2
+        rc.zscore("result", "key_one").to_i.should == 5
+        rc.zscore("result", "key_two").to_i.should == 10
+      end
+
+      it "max'es" do
+        rc.zinterstore("result", ["my_zset_one", "my_zset_two"], :aggregate => :max).should == 2
+        rc.zscore("result", "key_one").to_i.should == 10
+        rc.zscore("result", "key_two").to_i.should == 20
+      end
+
+      it "raise an Error with an invalid aggregate function" do
+        rc.zadd "my_zset_one", 1, "key_one"
+        rc.zadd "my_zset_two", 10, "key_one"
+        expect { rc.zinterstore("result", ["my_zset_one", "my_zset_two"], :aggregate => :blahdiblah) }.to raise_error
+      end
+    end
+  end
+
   context "#zunionstore" do
     before do
       rc.zadd "my_zset_one", 1, "key_one"
@@ -318,10 +367,6 @@ describe RedCluster do
         expect { rc.zunionstore("result", ["my_zset_one", "my_zset_two"], :aggregate => :blahdiblah) }.to raise_error
       end
     end
-  end
-
-  context "#zinterstore" do
-    xit "works"
   end
 end
 
