@@ -39,14 +39,10 @@ class RedCluster
 
   def config(cmd, *args)
     if cmd == :get
-      @servers.inject({}) do |result, srvr|
-        result.merge srvr.config(:get, *args)
-      end
-    elsif [:set, :resetstat].include?(cmd)
+      @servers.inject({}) { |result, srvr| result.merge(srvr.config(:get, *args)) }
+    else
       @servers.each { |srvr| srvr.config(cmd, *args) }
       "OK"
-    else
-      raise "ERR CONFIG subcommand must be one of GET, SET, RESETSTAT"
     end
   end
 
