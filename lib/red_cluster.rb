@@ -164,7 +164,7 @@ class RedCluster
 
   private
   def server_for_key(key)
-    @servers[Zlib.crc32(key) % @servers.size]
+    @servers[Zlib.crc32(key).abs % @servers.size]
   end
 
   def multi_count
