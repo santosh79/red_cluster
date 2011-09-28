@@ -173,11 +173,11 @@ describe RedCluster do
 
   context "#rename" do
     it "raises an error if the key did not exist" do
-      expect { rc.rename("unknown_key", "key") }.should raise_error
+      expect { rc.rename("unknown_key", "key") }.to raise_error(RuntimeError, "ERR no such key")
     end
     it "raises an error if the keys are the same" do
       rc.set "foo", "bar"
-      expect { rc.rename("foo", "foo") }.should raise_error
+      expect { rc.rename("foo", "foo") }.to raise_error(RuntimeError, "ERR source and destination objects are the same")
     end
     it "does a rename" do
       rc.set "foo", "bar"
@@ -401,6 +401,10 @@ describe RedCluster do
         expect { rc.zunionstore("result", ["my_zset_one", "my_zset_two"], :aggregate => :blahdiblah) }.to raise_error
       end
     end
+  end
+
+  context "#shutdown" do
+    xit "shutdowns all servers"
   end
 end
 

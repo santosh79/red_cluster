@@ -10,32 +10,24 @@ class RedCluster
     @servers = servers.map { |server| Server.new self, server }
   end
 
-  KEY_OPS                   = %W{del exists expire expireat keys move object persists randomkey rename renamenx sort ttl type}.map(&:to_sym)
   SINGLE_KEY_KEY_OPS        = %W{del exists expire expireat move object persists sort ttl type}.map(&:to_sym)
-
   STRING_OPS                = %W{append decr decrby get getbit getrange getset incr incrby mget mset msetnx set setbit setex setnx setrange strlen}.map(&:to_sym)
   HASH_OPS                  = %W{hdel hexists hget hgetall hincrby hkeys hlen hmget hmset hset hsetnx hvals}.map(&:to_sym)
-
-  LIST_OPS                  = %W{blpop brpop brpoplpush lindex linsert llen lpop lpush lpushx lrange lrem lset ltrim rpop rpoplpush rpush rpushx}.map(&:to_sym)
   SINGLE_KEY_LIST_OPS       = %W{blpop brpop lindex linsert llen lpop lpush lpushx lrange lrem lset ltrim rpop rpush rpushx}.map(&:to_sym)
-
-  SET_OPS                   = %W{sadd scard sdiff sdiffstore sinter sinterstore sismember smembers smove spop srandmember srem sunion sunionstore}.map(&:to_sym)
   SINGLE_KEY_SET_OPS        = %W{sadd scard sismember smembers spop srandmember srem}.map(&:to_sym)
-
-  SORTED_SET_OPS            = %W{zadd zcard zcount zincrby zinterstore zrange zrangebyscore zrank zrem zremrangebyrank zremrangebyscore zrevrange zrevrangebyscore zrevrank zscore zunionstore}.map(&:to_sym)
   SINGLE_KEY_SORTED_SET_OPS = %W{zadd zcard zcount zincrby zrange zrangebyscore zrank zrem zremrangebyrank zremrangebyscore zrevrange zrevrangebyscore zrevrank zscore}.map(&:to_sym)
-
-
   SINGLE_KEY_OPS            = SINGLE_KEY_KEY_OPS + STRING_OPS + HASH_OPS + SINGLE_KEY_LIST_OPS + SINGLE_KEY_SET_OPS + SINGLE_KEY_SORTED_SET_OPS
 
-  SERVER_OPS                = %W{multi exec bgsave lastsave flushall flushdb quit ping echo select}.map(&:to_sym)
-
+  # Server Ops
+  def select(db); @servers.each {|srvr| srvr.select(db) }; "OK"; end
+  def echo(msg); @servers.each {|srvr| srvr.echo(msg) }; msg; end
   def flushdb; @servers.each(&:flushdb); end
-  def multi; @servers.each(&:multi); end
+  def flushall; @servers.each { |server| server.flushall }; "OK"; end
   def quit; @servers.each(&:quit); "OK"; end
   def ping; @servers.each(&:ping); "PONG"; end
-  def echo(msg); @servers.each {|srvr| srvr.echo(msg) }; msg; end
-  def select(db); @servers.each {|srvr| srvr.select(db) }; "OK"; end
+  def keys(pattern); @servers.map { |server| server.keys pattern }.flatten; end
+  def bgsave; @servers.each(&:bgsave); "Background saving started"; end
+  def lastsave; @servers.map(&:lastsave).sort.first; end
 
   def config(cmd, *args)
     if cmd == :get
@@ -46,26 +38,8 @@ class RedCluster
     end
   end
 
-  def keys(pattern)
-    @servers.map do |server|
-      server.keys pattern
-    end.flatten
-  end
-
-  def flushall
-    @servers.each { |server| server.flushall }
-    "OK"
-  end
-
-  def smove(src, destination, member)
-    if sismember src, member
-      sadd destination, member
-      srem src, member
-      true
-    else
-      false
-    end
-  end
+  # Transaction Ops
+  def multi; @servers.each(&:multi); end
 
   def exec
     @multi_count = nil
@@ -77,15 +51,7 @@ class RedCluster
     Hash[*exec_results.flatten].sort.map(&:last)
   end
 
-  def bgsave
-    @servers.each(&:bgsave)
-    "Background saving started"
-  end
-
-  def lastsave
-    @servers.map(&:lastsave).sort.first
-  end
-
+  # Key Ops
   def randomkey
     servers_with_keys_in_them  = @servers.select { |server| server.randomkey != nil }
     idx = (rand * servers_with_keys_in_them.count).to_i
@@ -101,6 +67,7 @@ class RedCluster
     set new_key, val
   end
 
+  # List Ops
   def rpoplpush(src_list, target_list)
     val = rpop src_list
     return unless val
@@ -113,6 +80,17 @@ class RedCluster
     return unless val
     lpush target_list, val
     val
+  end
+
+  # Set Ops
+  def smove(src, destination, member)
+    if sismember src, member
+      sadd destination, member
+      srem src, member
+      true
+    else
+      false
+    end
   end
 
   def sdiff(*sets)
@@ -139,6 +117,7 @@ class RedCluster
     perform_store_strategy :sdiff, destination, *sets
   end
 
+  # Sorted Set Ops
   def zinterstore(destination, input_sets, options = {})
     perform_sorted_set_store_strategy :intersection, destination, input_sets, options
   end
