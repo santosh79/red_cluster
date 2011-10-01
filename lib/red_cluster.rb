@@ -163,19 +163,22 @@ class RedCluster
   end
 
   def perform_sorted_set_store_strategy(strategy, destination, input_sets, options)
-    weights = Hash[input_sets.zip(Array(options[:weights]))].reject { |k,v| v == nil }
+    weights = Array(options[:weights])
+
     first_set = Set.new(zrange(input_sets.first, 0, -1))
     accum_set = input_sets[0..-1].inject(first_set) do |accmltr, set|
       accmltr.send(strategy, Set.new(zrange(set, 0, -1)))
     end
+
     del destination
+
     accum_set.entries.each do |entry|
       score_of_input_sets = input_sets.map do |input_set| 
         [input_set, zscore(input_set, entry)] 
       end.reject do |is, zscr|
-        zscr == nil 
+        zscr == nil
       end.map do |is,zscr|
-        zscr.to_i * weights.fetch(is) { 1 }
+        zscr.to_i * (weights[input_sets.index(is)] || 1)
       end
       aggregate_function = (options[:aggregate] || :sum)
       score = if aggregate_function == :sum
@@ -185,6 +188,7 @@ class RedCluster
               else
                 raise "ERR syntax error"
               end
+
       zadd destination, score, entry
     end
     zcard destination
