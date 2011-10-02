@@ -278,7 +278,10 @@ describe RedCluster do
   end
 
   context "#auth" do
-    xit "works"
+    it "authenticates against all servers" do
+      rc.servers.each { |srvr| srvr.should_receive(:auth).with("foobar") }
+      rc.auth "foobar"
+    end
   end
 
   context "#discard" do
