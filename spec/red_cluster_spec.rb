@@ -285,7 +285,13 @@ describe RedCluster do
   end
 
   context "#discard" do
-    xit "works"
+    it "discards the transaction" do
+      rc.set "foo", 1
+      rc.multi
+      rc.incr "foo"
+      rc.discard.should == 'OK'
+      rc.get("foo").to_i.should == 1
+    end
   end
 
   context "#watch" do

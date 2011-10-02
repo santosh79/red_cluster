@@ -53,6 +53,12 @@ class RedCluster
     Hash[*exec_results.flatten].sort.map(&:last)
   end
 
+  def discard
+    @multi_count = nil
+    @servers.each(&:discard)
+    'OK'
+  end
+
   # Key Ops
   def randomkey
     servers_with_keys_in_them  = @servers.select { |server| server.randomkey != nil }

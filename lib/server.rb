@@ -19,6 +19,11 @@ class RedCluster
       @redis.exec.map { |result| [@cmd_order_in_multi.shift, result] }
     end
 
+    def discard
+      @in_multi = nil
+      @redis.discard
+    end
+
     def method_missing(method, *args)
       if @in_multi
         @cmd_order_in_multi << @my_cluster.send(:multi_count)
