@@ -29,7 +29,7 @@ class RedCluster
   def ping; @servers.each(&:ping); "PONG"; end
   def keys(pattern); @servers.map { |server| server.keys pattern }.flatten; end
   def bgsave; @servers.each(&:bgsave); "Background saving started"; end
-  def lastsave; @servers.map(&:lastsave).sort.first; end
+  def lastsave; @servers.map(&:lastsave).min; end
 
   def config(cmd, *args)
     if cmd == :get
