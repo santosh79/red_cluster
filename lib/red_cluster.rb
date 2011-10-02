@@ -22,6 +22,7 @@ class RedCluster
   def select(db); @servers.each {|srvr| srvr.select(db) }; "OK"; end
   def echo(msg); @servers.each {|srvr| srvr.echo(msg) }; msg; end
   def flushdb; @servers.each(&:flushdb); end
+  def shutdown; @servers.each(&:shutdown); end
   def flushall; @servers.each { |server| server.flushall }; "OK"; end
   def quit; @servers.each(&:quit); "OK"; end
   def ping; @servers.each(&:ping); "PONG"; end

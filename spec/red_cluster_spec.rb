@@ -404,7 +404,10 @@ describe RedCluster do
   end
 
   context "#shutdown" do
-    xit "shutdowns all servers"
+    it "shutdowns all servers" do
+      rc.servers.each { |srvr| srvr.should_receive(:shutdown) }
+      rc.shutdown
+    end
   end
 end
 
