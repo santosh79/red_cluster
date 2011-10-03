@@ -186,7 +186,7 @@ class RedCluster
       end.reject do |is, zscr|
         zscr == nil
       end.map do |is,zscr|
-        zscr.to_i * (weights[input_sets.index(is)] || 1)
+        zscr.to_i * weights.fetch(input_sets.index(is), 1)
       end
       aggregate_function = (options[:aggregate] || :sum)
       score = if aggregate_function == :sum
