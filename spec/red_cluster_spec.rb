@@ -208,6 +208,12 @@ describe RedCluster do
     end
   end
 
+  context "#unwatch" do
+    it "is an unsupported operation" do
+      expect { rc.unwatch }.to raise_error(RuntimeError, "Unsupported operation: unwatch")
+    end
+  end
+
   context "bgsave-lastsave" do
     it "returns the earliest lastsave time across the cluster" do
       lastsave = rc.lastsave
@@ -303,10 +309,6 @@ describe RedCluster do
   context "#watch" do
     it "watches keys across the cluster" do
     end
-  end
-
-  context "#unwatch" do
-    xit "works"
   end
 
   context "#object" do
