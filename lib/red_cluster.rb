@@ -10,7 +10,7 @@ class RedCluster
     @servers = servers.map { |server| Server.new self, server }
   end
 
-  SINGLE_KEY_KEY_OPS        = %W{del exists expire expireat move object persists sort ttl type}.map(&:to_sym)
+  SINGLE_KEY_KEY_OPS        = %W{del exists expire expireat move object persists ttl type}.map(&:to_sym)
   STRING_OPS                = %W{append decr decrby get getbit getrange getset incr incrby mget mset msetnx set setbit setex setnx setrange strlen}.map(&:to_sym)
   HASH_OPS                  = %W{hdel hexists hget hgetall hincrby hkeys hlen hmget hmset hset hsetnx hvals}.map(&:to_sym)
   SINGLE_KEY_LIST_OPS       = %W{blpop brpop lindex linsert llen lpop lpush lpushx lrange lrem lset ltrim rpop rpush rpushx}.map(&:to_sym)
@@ -73,6 +73,37 @@ class RedCluster
     val = get key
     del key
     set new_key, val
+  end
+
+  def sort(collection, options = {})
+    srvr = server_for_key collection
+    store_key = options.delete :store
+    by_external_key = options[:by]
+    options.delete(:by) unless options[:by] == "nosort"
+    get_external_key = options.delete :get
+    order = options.fetch(:order, "")
+    sort_results = srvr.sort collection, options
+
+    if by_external_key
+      if order =~ /\balpha\b/
+        sort_results.sort_by! { |el| sort_val = self.get(by_external_key.gsub("*", el)) ? sort_val : nil }
+      else
+        sort_results.sort_by! { |el| sort_val = self.get(by_external_key.gsub("*", el)) ? (p("sort_val is: #{sort_val}"); sort_val.to_i) : nil }
+      end
+      sort_results.reverse! if order =~ /\bdesc\b/
+    end
+
+    if store_key
+      del store_key
+      sort_results.each { |res| self.rpush(store_key, res) }
+      sort_results.size
+    else
+      if get_external_key
+        sort_results.map { |res| self.get(get_external_key.gsub("*", res)) }
+      else
+        sort_results
+      end
+    end
   end
 
   # List Ops

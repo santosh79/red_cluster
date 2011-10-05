@@ -316,7 +316,41 @@ describe RedCluster do
   end
 
   context "#sort" do
-    xit "works"
+    it "does basic sorting" do
+      (1..1000).to_a.each { |i| rc.lpush("temp_list", i) }
+      rc.sort("temp_list").should == (1..1000).to_a.map(&:to_s)
+      %W{the quick brown fox jumped over the lazy dog}.each { |word| rc.lpush('words', word)}
+      rc.sort("words", :order => "alpha desc").should == %W{the quick brown fox jumped over the lazy dog}.sort.reverse
+    end
+    it "handles storing the results" do
+      %W{the quick brown fox jumped over the lazy dog}.each { |word| rc.lpush('words', word)}
+      rc.sort("words", :order => "alpha desc", :store => "sorted_words").should == 9
+      rc.lrange("sorted_words", 0, -1).should == %W{the quick brown fox jumped over the lazy dog}.sort.reverse
+
+      rc.sort("words", :order => "alpha", :store => "sorted_words").should == 9
+      rc.lrange("sorted_words", 0, -1).should == %W{the quick brown fox jumped over the lazy dog}.sort
+    end
+
+    it "handles external keys" do
+      (1..1000).to_a.each { |i| rc.set("number|#{i}", "hello|#{i}"); rc.rpush("number_ids", i) }
+      rc.sort("number_ids", :get => "number|*").should == (1..1000).to_a.map { |i| "hello|#{i}" }
+    end
+
+    it "handles external weights" do
+      rc.set "weight|1", 100
+      rc.set "weight|2", 99
+      rc.set "weight|3", 98
+      (1..3).to_a.each { |num| rc.rpush('my_list', num) }
+      rc.sort('my_list', :by => "weight|*").should == ['3', '2', '1']
+      rc.sort('my_list', :by => "weight|*", :order => "alpha").should == ['1', '3', '2']
+      rc.sort('my_list', :by => "weight|*", :order => "alpha desc").should == ['2', '3', '1']
+    end
+
+    it "handles no sort" do
+      (1..10).to_a.reverse.each { |i| rc.rpush("my_list", i) }
+      rc.lrange("my_list", 0, -1).should == (1..10).to_a.reverse.map(&:to_s)
+      rc.sort("my_list", :by => "nosort").should == (1..10).to_a.reverse.map(&:to_s)
+    end
   end
 
   context "#zinterstore" do
