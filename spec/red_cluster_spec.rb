@@ -15,14 +15,14 @@ describe RedCluster do
   end
 
   context "#set" do
-    it "stores the key value in only one of the servers it's fronting" do
+    it "stores the key value in only one of the servers it's fronting", :fast => true do
       rc.set "foo", "bar"
       rc.servers.select { |server| server.get("foo") != nil }.size.should == 1
     end
   end
 
   context "#randomkey" do
-    it "returns a random key across the cluster" do
+    it "returns a random key across the cluster", :fast => true do
       rc.set "foo", "bar"
       rc.randomkey.should == "foo"
     end
@@ -64,7 +64,7 @@ describe RedCluster do
     end
   end
 
-  context "#keys" do
+  context "#keys", :fast => true do
     it 'scans across the cluster' do
       (1..100).to_a.each { |num| rc.set("number|#{num}", "hello") }
       first_servers_keys = rc.servers.first.keys("*")
@@ -77,7 +77,7 @@ describe RedCluster do
     end
   end
 
-  context "#smove" do
+  context "#smove", :fast => true do
     it "returns false if the first set does not exist or does not have the member" do
       rc.smove("non_existent_source", "destination", "foo").should == false
       rc.sadd "source", "bar"
@@ -92,7 +92,7 @@ describe RedCluster do
     end
   end
 
-  context "#sdiffstore" do
+  context "#sdiffstore", :fast => true do
     it "stores the diff in the destination" do
       (1..10).to_a.each { |num| rc.sadd "set_one", num }
       (5..10).to_a.each { |num| rc.sadd "set_two", num }
@@ -106,7 +106,7 @@ describe RedCluster do
     end
   end
 
-  context "#sdiff" do
+  context "#sdiff", :fast => true do
     it "calculates the diff" do
       (1..10).to_a.each { |num| rc.sadd "set_one", num }
       (5..10).to_a.each { |num| rc.sadd "set_two", num }
@@ -117,7 +117,7 @@ describe RedCluster do
     end
   end
 
-  context "#sinter" do
+  context "#sinter", :fast => true do
     it "calculates the intersection" do
       (1..10).to_a.each { |num| rc.sadd "set_one", num }
       (5..10).to_a.each { |num| rc.sadd "set_two", num }
@@ -128,7 +128,7 @@ describe RedCluster do
     end
   end
 
-  context "#sinterstore" do
+  context "#sinterstore", :fast => true do
     it "stores the diff in the destination" do
       (1..10).to_a.each { |num| rc.sadd "set_one", num }
       (5..10).to_a.each { |num| rc.sadd "set_two", num }
@@ -144,7 +144,7 @@ describe RedCluster do
     end
   end
 
-  context "#sunion" do
+  context "#sunion", :fast => true do
     it "calculates the union" do
       (1..4).to_a.each { |num| rc.sadd "set_one", num }
       (5..10).to_a.each { |num| rc.sadd "set_two", num }
@@ -155,7 +155,7 @@ describe RedCluster do
     end
   end
 
-  context "#sunionstore" do
+  context "#sunionstore", :fast => true do
     it "stores the union in the destination" do
       (1..4).to_a.each { |num| rc.sadd "set_one", num }
       (5..10).to_a.each { |num| rc.sadd "set_two", num }
@@ -171,7 +171,7 @@ describe RedCluster do
     end
   end
 
-  context "#rename" do
+  context "#rename", :fast => true do
     it "raises an error if the key did not exist" do
       expect { rc.rename("unknown_key", "key") }.to raise_error(RuntimeError, "ERR no such key")
     end
@@ -187,7 +187,7 @@ describe RedCluster do
     end
   end
 
-  context "#multi-exec" do
+  context "#multi-exec", :fast => true do
     it "works" do
       rc.get("foo").should_not be
       rc.get("baz").should_not be
@@ -202,13 +202,13 @@ describe RedCluster do
     end
   end
 
-  context "#watch" do
+  context "#watch", :fast => true do
     it "is an unsupported operation" do
       expect { rc.watch }.to raise_error(RuntimeError, "Unsupported operation: watch")
     end
   end
 
-  context "#unwatch" do
+  context "#unwatch", :fast => true do
     it "is an unsupported operation" do
       expect { rc.unwatch }.to raise_error(RuntimeError, "Unsupported operation: unwatch")
     end
@@ -227,27 +227,27 @@ describe RedCluster do
     end
   end
 
-  context "#quit" do
+  context "#quit", :fast => true do
     it "closes all the cnxn's it has" do
       rc.quit.should == "OK"
     end
   end
 
-  context "#ping" do
+  context "#ping", :fast => true do
     it "ping's all servers in the cluster" do
       rc.servers.each { |srvr| srvr.should_receive(:ping) }
       rc.ping.should == "PONG"
     end
   end
 
-  context "#echo" do
+  context "#echo", :fast => true do
     it "echo's all servers" do
       rc.servers.each { |srvr| srvr.should_receive(:echo).with("hello") }
       rc.echo("hello").should == "hello"
     end
   end
 
-  context "#select" do
+  context "#select", :fast => true do
     it "changes the db across all servers" do
       #select is some kind of weird reserve word - don't want to bother testing this. It works.
       # rc.servers.each { |srvr| srvr.should_receive(:select).with(10) }
@@ -255,14 +255,14 @@ describe RedCluster do
     end
   end
 
-  context "#config" do
+  context "#config", :fast => true do
     context "#get" do
       it "returns the config values across all servers" do
         rc.config(:get, "*").should_not be_empty
       end
     end
 
-    context "#set" do
+    context "#set", :fast => true do
       it "sets values across all servers" do
         old_timeout = rc.config(:get, "timeout")["timeout"].to_i
         old_timeout.should > 0
@@ -273,7 +273,7 @@ describe RedCluster do
       end
     end
 
-    context "#resetstat" do
+    context "#resetstat", :fast => true do
       it "resets stats across all servers" do
         rc.flushall
         rc.servers.each { |srvr| srvr.info["total_commands_processed"].to_i.should > 1 }
@@ -282,21 +282,21 @@ describe RedCluster do
       end
     end
 
-    context "#bad_command" do
+    context "#bad_command", :fast => true do
       it "raises an error" do
         expect { rc.config(:bad_command) }.to raise_error(RuntimeError, "ERR CONFIG subcommand must be one of GET, SET, RESETSTAT")
       end
     end
   end
 
-  context "#auth" do
+  context "#auth", :fast => true do
     it "authenticates against all servers" do
       rc.servers.each { |srvr| srvr.should_receive(:auth).with("foobar") }
       rc.auth "foobar"
     end
   end
 
-  context "#discard" do
+  context "#discard", :fast => true do
     it "discards the transaction" do
       rc.set "foo", 1
       rc.multi
@@ -319,7 +319,7 @@ describe RedCluster do
     xit "works"
   end
 
-  context "#zinterstore" do
+  context "#zinterstore", :fast => true do
     before do
       rc.zadd "my_zset_one", 1, "key_one"
       rc.zadd "my_zset_two", 10, "key_one"
@@ -368,7 +368,7 @@ describe RedCluster do
     end
   end
 
-  context "#zunionstore" do
+  context "#zunionstore", :fast => true do
     before do
       rc.zadd "my_zset_one", 1, "key_one"
       rc.zadd "my_zset_two", 10, "key_one"
@@ -421,7 +421,7 @@ describe RedCluster do
     end
   end
 
-  context "#shutdown" do
+  context "#shutdown", :fast => true do
     it "shutdowns all servers" do
       rc.servers.each { |srvr| srvr.should_receive(:shutdown) }
       rc.shutdown
