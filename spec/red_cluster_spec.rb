@@ -14,14 +14,14 @@ describe RedCluster do
     RedCluster.new servers
   end
 
-  context "#set" do
+  context "#set", :fast => true do
     it "stores the key value in only one of the servers it's fronting", :fast => true do
       rc.set "foo", "bar"
       rc.servers.select { |server| server.get("foo") != nil }.size.should == 1
     end
   end
 
-  context "#randomkey" do
+  context "#randomkey", :fast => true do
     it "returns a random key across the cluster", :fast => true do
       rc.set "foo", "bar"
       rc.randomkey.should == "foo"
