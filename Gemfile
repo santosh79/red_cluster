@@ -1,3 +1,6 @@
 source "http://rubygems.org"
 gem "redis"
-gem 'rspec'
+group :test do
+  gem 'rspec'
+  gem 'mocha'
+end
