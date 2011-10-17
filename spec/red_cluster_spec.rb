@@ -427,5 +427,9 @@ describe RedCluster do
       rc.shutdown
     end
   end
+
+  context "singletion" do
+    xit "has a singleton"
+  end
 end
 
