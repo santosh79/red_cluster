@@ -5,7 +5,7 @@ class RedCluster
     def initialize(options)
       @master = Redis.new options[:master]
       @slaves = options[:slaves].map { |slave_config| Redis.new slave_config }
-      @slaves.each { |slave| slave.slaveof(options[:master][:host], options[:master][:port]) }
+      setup_slaves
     end
 
     def method_missing(command, *args)
@@ -23,8 +23,8 @@ class RedCluster
     rescue Errno::ECONNREFUSED
       new_master = @slaves.shift
       raise(NoMaster, "No master in replica set") unless new_master
-      @slaves.each { |slave| slave.slaveof(new_master.client.host, new_master.client.port) }
       @master = new_master
+      setup_slaves
       retry
     end
 
@@ -35,6 +35,10 @@ class RedCluster
     end
 
     private
+
+    def setup_slaves
+      @slaves.each { |slave| slave.slaveof(@master.client.host, @master.client.port) }
+    end
 
     def slaveof_command?(command)
       command == :slaveof
