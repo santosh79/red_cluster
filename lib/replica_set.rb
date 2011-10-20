@@ -8,6 +8,43 @@ class RedCluster
       @slaves.each { |slave| slave.slaveof(options[:master][:host], options[:master][:port]) }
     end
 
+    def method_missing(command, *args)
+      if blocking_command?(command)
+        raise "Blocking Commands Not Permitted"
+      elsif pub_sub_command?(command)
+        raise "Pub Sub Commands Not Permitted"
+      elsif slaveof_command?(command)
+        raise "Slave Commands Not Permitted"
+      elsif read_command?(command)
+        next_slave.send command, *args
+      else
+        @master.send command, *args
+      end
+    end
+
+    def next_slave
+      ret = @slaves.shift
+      @slaves.push ret
+      ret
+    end
+
+    private
+
+    def slaveof_command?(command)
+      command == :slaveof
+    end
+
+    def read_command?(command)
+      [:dbsize, :exists, :get, :getbit, :getrange, :hexists, :hget, :hgetall, :hkeys, :hlen, :hmget, :hvals, :keys, :lastsave, :lindex, :llen, :mget, :object, :randomkey, :scard, :sismember, :smembers, :srandmember, :strlen, :ttl, :zcard, :zcount, :zrange, :zrangebyscore, :zrank, :zrevrange, :zrevrangebyscore, :zrevrank, :zscore].include?(command)
+    end
+
+    def blocking_command?(command)
+      [:blpop, :brpop, :brpoplpush].include?(command)
+    end
+
+    def pub_sub_command?(command)
+      [:psubscribe, :publish, :punsunscribe, :subscribe, :unsubscribe].include?(command)
+    end
   end
 end
 
