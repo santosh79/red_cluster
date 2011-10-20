@@ -20,6 +20,12 @@ class RedCluster
       else
         @master.send command, *args
       end
+    rescue Errno::ECONNREFUSED
+      new_master = @slaves.shift
+      raise(NoMaster, "No master in replica set") unless new_master
+      @slaves.each { |slave| slave.slaveof(new_master.client.host, new_master.client.port) }
+      @master = new_master
+      retry
     end
 
     def next_slave
@@ -48,3 +54,7 @@ class RedCluster
   end
 end
 
+class RedCluster
+  class NoMaster < ::Exception
+  end
+end

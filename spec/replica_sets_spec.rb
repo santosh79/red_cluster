@@ -6,13 +6,13 @@ describe RedCluster::ReplicaSet do
     it "gets initialized with one master & one or more slaves" do
       master = {:host => "localhost", :port => 6379}
       slaves = [{:host => "localhost", :port => 7379},
-                {:host => "localhost", :port => 8379}]
+        {:host => "localhost", :port => 8379}]
       RedCluster::ReplicaSet.new :master => master, :slaves => slaves
     end
   end
 
   context "#other characteristics" do
-    before(:all) do
+    before(:each) do
       master = {:host => "localhost", :port => 6379}
       slaves = [{:host => "localhost", :port => 7379},
         {:host => "localhost", :port => 8379}]
@@ -33,6 +33,50 @@ describe RedCluster::ReplicaSet do
       end
     end
 
+    context "master dying" do
+      before(:each) do
+        master.stubs(:set).raises Errno::ECONNREFUSED
+      end
+      context "when it's a read op" do
+        it "things work as though nothing happened" do
+          expect { rs.get("foo") }.to_not raise_error
+        end
+      end
+
+      context "when there are more than one slave" do
+        it "one of them gets promoted to the new master" do
+          old_slaves = slaves.dup
+          old_master = master
+          rs.set("foo", "bar")
+          old_master.should_not == rs.master
+          old_slaves.should include(rs.master)
+        end
+        it "the other's become slaves of the new master" do
+          rs.set("foo", "bar")
+          new_master = rs.master
+          rs.slaves.each do |slave| 
+            slave.info["master_host"].should == new_master.client.host
+            slave.info["master_port"].should == new_master.client.port.to_s
+          end
+        end
+      end
+      context "when there is just one slave" do
+        it "becomes the new master" do
+          slaves.shift while slaves.count > 1
+          slaves.count.should == 1
+          old_slave = slaves[0]
+          rs.set('foo', 'bar')
+          old_slave.should == rs.master
+        end
+      end
+      context "when there are no slaves" do
+        it "a RedCluster::NoMaster exception get's thrown" do
+          slaves.shift while slaves.count > 0
+          expect { rs.set('foo', 'bar') }.to raise_error(RedCluster::NoMaster, "No master in replica set")
+        end
+      end
+    end
+
     context "#read operations" do
       it "get forwarded to the slaves on a round-robin basis" do
         master.expects(:get).never
@@ -45,12 +89,21 @@ describe RedCluster::ReplicaSet do
     end
 
     context "#write operations" do
-      xit "get forwarded to the master"
+      it "get forwarded to the master" do
+        master.expects(:set)
+        rs.set("foo", "bar")
+      end
     end
 
     context "#blocking operations" do
       it "raise an error" do
         expect { rs.blpop("some_list", 0) }.to raise_error
+      end
+    end
+
+    context "#slaveof operations" do
+      it "raise an error" do
+        expect { rs.slaveof("localhost", 6379) }.to raise_error
       end
     end
 
@@ -60,21 +113,6 @@ describe RedCluster::ReplicaSet do
       end
     end
 
-    context "master dying" do
-      before(:each) do
-        master.stubs(:ping).raises RuntimeError
-      end
-      context "when there are more than one slave" do
-        xit "one of them gets promoted to the new master"
-        xit "the other's become slaves of the new master"
-      end
-      context "when there is just one slave" do
-        xit "becomes the new master"
-      end
-      context "when there are no slaves" do
-        xit "a RedCluster::NoMaster exception get's thrown"
-      end
-    end
   end
 end
 
