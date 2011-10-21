@@ -1,13 +1,14 @@
 require 'redis'
 require 'zlib'
 require 'set'
+require 'replica_set'
 require File.join(__FILE__,"../server")
 
 class RedCluster
-  attr_reader :servers
+  attr_reader :replica_sets
 
-  def initialize(servers = [])
-    @servers = servers.map { |server| Server.new self, server }
+  def initialize(replica_sets = [])
+    @replica_sets = replica_sets.map { |replica_set| ReplicaSet.new replica_set }
   end
 
   SINGLE_KEY_KEY_OPS        = %W{del exists expire expireat move object persists sort ttl type}.map(&:to_sym)
@@ -19,33 +20,33 @@ class RedCluster
   SINGLE_KEY_OPS            = SINGLE_KEY_KEY_OPS + STRING_OPS + HASH_OPS + SINGLE_KEY_LIST_OPS + SINGLE_KEY_SET_OPS + SINGLE_KEY_SORTED_SET_OPS
 
   # Server Ops
-  def select(db); @servers.each {|srvr| srvr.select(db) }; "OK"; end
-  def echo(msg); @servers.each {|srvr| srvr.echo(msg) }; msg; end
-  def auth(pwd); @servers.each {|srvr| srvr.auth(pwd) }; "OK"; end
-  def flushdb; @servers.each(&:flushdb); end
-  def shutdown; @servers.each(&:shutdown); end
-  def flushall; @servers.each { |server| server.flushall }; "OK"; end
-  def quit; @servers.each(&:quit); "OK"; end
-  def ping; @servers.each(&:ping); "PONG"; end
-  def keys(pattern); @servers.map { |server| server.keys pattern }.flatten; end
-  def bgsave; @servers.each(&:bgsave); "Background saving started"; end
-  def lastsave; @servers.map(&:lastsave).min; end
+  def select(db); @replica_sets.each {|srvr| srvr.select(db) }; "OK"; end
+  def echo(msg); @replica_sets.each {|srvr| srvr.echo(msg) }; msg; end
+  def auth(pwd); @replica_sets.each {|srvr| srvr.auth(pwd) }; "OK"; end
+  def flushdb; @replica_sets.each(&:flushdb); end
+  def shutdown; @replica_sets.each(&:shutdown); end
+  def flushall; @replica_sets.each { |server| server.flushall }; "OK"; end
+  def quit; @replica_sets.each(&:quit); "OK"; end
+  def ping; @replica_sets.each(&:ping); "PONG"; end
+  def keys(pattern); @replica_sets.map { |server| server.keys pattern }.flatten; end
+  def bgsave; @replica_sets.each(&:bgsave); "Background saving started"; end
+  def lastsave; @replica_sets.map(&:lastsave).min; end
 
   def config(cmd, *args)
     if cmd == :get
-      @servers.inject({}) { |result, srvr| result.merge(srvr.config(:get, *args)) }
+      @replica_sets.inject({}) { |result, replica_set| result.merge(srvr.config(:get, *args)) }
     else
-      @servers.each { |srvr| srvr.config(cmd, *args) }
+      @replica_sets.each { |srvr| srvr.config(cmd, *args) }
       "OK"
     end
   end
 
   # Transaction Ops
-  def multi; @servers.each(&:multi); end
+  def multi; @replica_sets.each(&:multi); end
 
   def exec
     @multi_count = nil
-    exec_results = @servers.map(&:exec)
+    exec_results = @replica_sets.map(&:exec)
     #We'll get back a deeply nested array of arrays of the kind
     #[[3, 30], [10, 1]], [1, "OK"]] - where the first element in each leaf array is the RANK and the second is the result
     #We need to return back the results sorted by rank. So in the above case it would be
@@ -55,16 +56,16 @@ class RedCluster
 
   def discard
     @multi_count = nil
-    @servers.each(&:discard)
+    @replica_sets.each(&:discard)
     'OK'
   end
 
   # Key Ops
   def randomkey
-    servers_with_keys_in_them  = @servers.select { |server| server.randomkey != nil }
-    idx = (rand * servers_with_keys_in_them.count).to_i
-    rand_server = servers_with_keys_in_them[idx]
-    rand_server && rand_server.randomkey
+    replica_sets_with_keys_in_them  = @replica_sets.select { |replica_set| replica_set.randomkey != nil }
+    idx = (rand * replica_sets_with_keys_in_them.count).to_i
+    rand_replica_set = replica_sets_with_keys_in_them[idx]
+    rand_replica_set && rand_replica_set.randomkey
   end
 
   def rename(key, new_key)
@@ -138,16 +139,16 @@ class RedCluster
   def method_missing(method, *args)
     if SINGLE_KEY_OPS.include?(method.to_sym)
       key = args.first
-      server = server_for_key key
-      server.send method, *args
+      replica_set = replica_set_for_key key
+      replica_set.send method, *args
     else
       raise "Unsupported operation: #{method}"
     end
   end
 
   private
-  def server_for_key(key)
-    @servers[Zlib.crc32(key).abs % @servers.size]
+  def replica_set_for_key(key)
+    @replica_sets[Zlib.crc32(key).abs % @replica_sets.size]
   end
 
   def multi_count
