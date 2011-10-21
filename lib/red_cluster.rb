@@ -34,9 +34,9 @@ class RedCluster
 
   def config(cmd, *args)
     if cmd == :get
-      @replica_sets.inject({}) { |result, replica_set| result.merge(srvr.config(:get, *args)) }
+      @replica_sets.inject({}) { |result, replica_set| result.merge(replica_set.config(:get, *args)) }
     else
-      @replica_sets.each { |srvr| srvr.config(cmd, *args) }
+      @replica_sets.each { |replica_set| replica_set.config(cmd, *args) }
       "OK"
     end
   end

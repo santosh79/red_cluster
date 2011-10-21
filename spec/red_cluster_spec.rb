@@ -2,7 +2,7 @@ require 'spec_helper'
 require 'red_cluster'
 
 describe RedCluster do
-  before(:each) do
+  before do
     first_replica_set = {
       :master => {:host => "localhost", :port => 6379}, 
       :slaves => [{:host => "localhost", :port => 7379},
@@ -20,6 +20,7 @@ describe RedCluster do
     }
     replica_sets = [first_replica_set, second_replica_set, third_replica_set]
     @rc = RedCluster.new replica_sets
+    @rc.replica_sets.each { |rs| rs.stubs(:read_command?).returns(false) }
   end
   let(:rc) { @rc }
   after { rc.flushall }
@@ -47,7 +48,6 @@ describe RedCluster do
   context "#randomkey", :fast => true do
     it "returns a random key across the cluster", :fast => true do
       rc.set "foo", "bar"
-      sleep 1
       rc.randomkey.should == "foo"
     end
     it "returns nil for an empty cluster" do
@@ -72,12 +72,8 @@ describe RedCluster do
   context "#flushall" do
     it "flushes keys from all across the cluster" do
       (1..10).to_a.each { |num| rc.set("number|#{num}", "hello") }
-      sleep 2
-      [0, 1, 2].each { |num| rc.replica_sets[num].randomkey.should be }
-
+      [0, 1, 2].each { |num| rc.replica_sets[num].master.randomkey.should be }
       rc.flushall.should == "OK"
-
-      sleep 2
       rc.randomkey.should_not be
     end
   end
@@ -85,7 +81,6 @@ describe RedCluster do
   context "#keys" do
     it 'scans across the cluster' do
       (1..10).to_a.each { |num| rc.set("number|#{num}", "hello") }
-      sleep 2
       rc.keys("*").map(&:to_s).sort.should == rc.replica_sets.inject([]) { |accum, rs| accum << rs.keys("*") }.flatten.map(&:to_s).sort
     end
   end
@@ -99,107 +94,106 @@ describe RedCluster do
 
     it "returns true if the first set had the member" do
       rc.sadd "source", "foo"
-      sleep 1
       rc.smove("source", "destination", "foo").should == true
       rc.sismember("source", "foo").should == false
       rc.sismember("destination", "foo").should == true
     end
   end
 
-  # context "#sdiffstore", :fast => true do
-  #   it "stores the diff in the destination" do
-  #     (1..10).to_a.each { |num| rc.sadd "set_one", num }
-  #     (5..10).to_a.each { |num| rc.sadd "set_two", num }
-  #     rc.sdiffstore("result_set", "set_one", "set_two").should == 4
-  #     rc.smembers("result_set").sort.should == (1..4).to_a.map(&:to_s)
-  #   end
+  context "#sdiffstore", :fast => true do
+    it "stores the diff in the destination" do
+      (1..10).to_a.each { |num| rc.sadd "set_one", num }
+      (5..10).to_a.each { |num| rc.sadd "set_two", num }
+      rc.sdiffstore("result_set", "set_one", "set_two").should == 4
+      rc.smembers("result_set").sort.should == (1..4).to_a.map(&:to_s)
+    end
 
-  #   it "doesn't store the destination if the diff yielded no results" do
-  #     rc.sdiffstore("result_set", "unknown_set", "set_two").should == 0
-  #     rc.smembers("result_set").should == []
-  #   end
-  # end
+    it "doesn't store the destination if the diff yielded no results" do
+      rc.sdiffstore("result_set", "unknown_set", "set_two").should == 0
+      rc.smembers("result_set").should == []
+    end
+  end
 
-  # context "#sdiff", :fast => true do
-  #   it "calculates the diff" do
-  #     (1..10).to_a.each { |num| rc.sadd "set_one", num }
-  #     (5..10).to_a.each { |num| rc.sadd "set_two", num }
-  #     rc.sdiff("set_one", "set_two").sort.should == (1..4).to_a.map(&:to_s)
-  #   end
-  #   it "returns an [] when the first set does not exist" do
-  #     rc.sdiff("unknown_set", "some_set").should == []
-  #   end
-  # end
+  context "#sdiff", :fast => true do
+    it "calculates the diff" do
+      (1..10).to_a.each { |num| rc.sadd "set_one", num }
+      (5..10).to_a.each { |num| rc.sadd "set_two", num }
+      rc.sdiff("set_one", "set_two").sort.should == (1..4).to_a.map(&:to_s)
+    end
+    it "returns an [] when the first set does not exist" do
+      rc.sdiff("unknown_set", "some_set").should == []
+    end
+  end
 
-  # context "#sinter", :fast => true do
-  #   it "calculates the intersection" do
-  #     (1..10).to_a.each { |num| rc.sadd "set_one", num }
-  #     (5..10).to_a.each { |num| rc.sadd "set_two", num }
-  #     rc.sinter("set_one", "set_two").map(&:to_i).sort.should == (5..10).to_a
-  #   end
-  #   it "returns an [] when the first set does not exist" do
-  #     rc.sinter("unknown_set", "some_set").should == []
-  #   end
-  # end
+  context "#sinter", :fast => true do
+    it "calculates the intersection" do
+      (1..10).to_a.each { |num| rc.sadd "set_one", num }
+      (5..10).to_a.each { |num| rc.sadd "set_two", num }
+      rc.sinter("set_one", "set_two").map(&:to_i).sort.should == (5..10).to_a
+    end
+    it "returns an [] when the first set does not exist" do
+      rc.sinter("unknown_set", "some_set").should == []
+    end
+  end
 
-  # context "#sinterstore", :fast => true do
-  #   it "stores the diff in the destination" do
-  #     (1..10).to_a.each { |num| rc.sadd "set_one", num }
-  #     (5..10).to_a.each { |num| rc.sadd "set_two", num }
-  #     rc.sinterstore("result_set", "set_one", "set_two").should == 6
-  #     rc.smembers("result_set").map(&:to_i).sort.should == (5..10).to_a
-  #   end
+  context "#sinterstore", :fast => true do
+    it "stores the diff in the destination" do
+      (1..10).to_a.each { |num| rc.sadd "set_one", num }
+      (5..10).to_a.each { |num| rc.sadd "set_two", num }
+      rc.sinterstore("result_set", "set_one", "set_two").should == 6
+      rc.smembers("result_set").map(&:to_i).sort.should == (5..10).to_a
+    end
 
-  #   it "doesn't store the destination if the diff yielded no results" do
-  #     rc.sadd "result_set", 1
-  #     rc.sinterstore("result_set", "unknown_set", "set_two").should == 0
-  #     rc.smembers("result_set").should == []
-  #     rc.exists("result_set").should_not be
-  #   end
-  # end
+    it "doesn't store the destination if the diff yielded no results" do
+      rc.sadd "result_set", 1
+      rc.sinterstore("result_set", "unknown_set", "set_two").should == 0
+      rc.smembers("result_set").should == []
+      rc.exists("result_set").should_not be
+    end
+  end
 
-  # context "#sunion", :fast => true do
-  #   it "calculates the union" do
-  #     (1..4).to_a.each { |num| rc.sadd "set_one", num }
-  #     (5..10).to_a.each { |num| rc.sadd "set_two", num }
-  #     rc.sunion("set_one", "set_two").map(&:to_i).sort.should == (1..10).to_a
-  #   end
-  #   it "returns an [] when the first set does not exist" do
-  #     rc.sunion("unknown_set", "some_set").should == []
-  #   end
-  # end
+  context "#sunion", :fast => true do
+    it "calculates the union" do
+      (1..4).to_a.each { |num| rc.sadd "set_one", num }
+      (5..10).to_a.each { |num| rc.sadd "set_two", num }
+      rc.sunion("set_one", "set_two").map(&:to_i).sort.should == (1..10).to_a
+    end
+    it "returns an [] when the first set does not exist" do
+      rc.sunion("unknown_set", "some_set").should == []
+    end
+  end
 
-  # context "#sunionstore", :fast => true do
-  #   it "stores the union in the destination" do
-  #     (1..4).to_a.each { |num| rc.sadd "set_one", num }
-  #     (5..10).to_a.each { |num| rc.sadd "set_two", num }
-  #     rc.sunionstore("result_set", "set_one", "set_two").should == 10
-  #     rc.smembers("result_set").map(&:to_i).sort.should == (1..10).to_a
-  #   end
+  context "#sunionstore", :fast => true do
+    it "stores the union in the destination" do
+      (1..4).to_a.each { |num| rc.sadd "set_one", num }
+      (5..10).to_a.each { |num| rc.sadd "set_two", num }
+      rc.sunionstore("result_set", "set_one", "set_two").should == 10
+      rc.smembers("result_set").map(&:to_i).sort.should == (1..10).to_a
+    end
 
-  #   it "doesn't store the destination if the diff yielded no results" do
-  #     rc.sadd "result_set", 1
-  #     rc.sunionstore("result_set", "unknown_set", "set_two").should == 0
-  #     rc.smembers("result_set").should == []
-  #     rc.exists("result_set").should_not be
-  #   end
-  # end
+    it "doesn't store the destination if the diff yielded no results" do
+      rc.sadd "result_set", 1
+      rc.sunionstore("result_set", "unknown_set", "set_two").should == 0
+      rc.smembers("result_set").should == []
+      rc.exists("result_set").should_not be
+    end
+  end
 
-  # context "#rename", :fast => true do
-  #   it "raises an error if the key did not exist" do
-  #     expect { rc.rename("unknown_key", "key") }.to raise_error(RuntimeError, "ERR no such key")
-  #   end
-  #   it "raises an error if the keys are the same" do
-  #     rc.set "foo", "bar"
-  #     expect { rc.rename("foo", "foo") }.to raise_error(RuntimeError, "ERR source and destination objects are the same")
-  #   end
-  #   it "does a rename" do
-  #     rc.set "foo", "bar"
-  #     rc.rename("foo", "foo_new").should == "OK"
-  #     rc.exists("foo").should_not be
-  #     rc.get("foo_new").should == "bar"
-  #   end
-  # end
+  context "#rename", :fast => true do
+    it "raises an error if the key did not exist" do
+      expect { rc.rename("unknown_key", "key") }.to raise_error(RuntimeError, "ERR no such key")
+    end
+    it "raises an error if the keys are the same" do
+      rc.set "foo", "bar"
+      expect { rc.rename("foo", "foo") }.to raise_error(RuntimeError, "ERR source and destination objects are the same")
+    end
+    it "does a rename" do
+      rc.set "foo", "bar"
+      rc.rename("foo", "foo_new").should == "OK"
+      rc.exists("foo").should_not be
+      rc.get("foo_new").should == "bar"
+    end
+  end
 
   # context "#multi-exec", :fast => true do
   #   it "works" do
@@ -216,17 +210,17 @@ describe RedCluster do
   #   end
   # end
 
-  # context "#watch", :fast => true do
-  #   it "is an unsupported operation" do
-  #     expect { rc.watch }.to raise_error(RuntimeError, "Unsupported operation: watch")
-  #   end
-  # end
+  context "#watch", :fast => true do
+    it "is an unsupported operation" do
+      expect { rc.watch }.to raise_error(RuntimeError, "Unsupported operation: watch")
+    end
+  end
 
-  # context "#unwatch", :fast => true do
-  #   it "is an unsupported operation" do
-  #     expect { rc.unwatch }.to raise_error(RuntimeError, "Unsupported operation: unwatch")
-  #   end
-  # end
+  context "#unwatch", :fast => true do
+    it "is an unsupported operation" do
+      expect { rc.unwatch }.to raise_error(RuntimeError, "Unsupported operation: unwatch")
+    end
+  end
 
   # context "bgsave-lastsave" do
   #   it "returns the earliest lastsave time across the cluster" do
@@ -241,67 +235,59 @@ describe RedCluster do
   #   end
   # end
 
-  # context "#quit", :fast => true do
-  #   it "closes all the cnxn's it has" do
-  #     rc.quit.should == "OK"
-  #   end
-  # end
+  context "#quit", :fast => true do
+    it "closes all the cnxn's it has" do
+      rc.quit.should == "OK"
+    end
+  end
 
-  # context "#ping", :fast => true do
-  #   it "ping's all servers in the cluster" do
-  #     rc.servers.each { |srvr| srvr.should_receive(:ping) }
-  #     rc.ping.should == "PONG"
-  #   end
-  # end
+  context "#ping", :fast => true do
+    it "ping's all replica_sets in the cluster" do
+      rc.replica_sets.each { |rs| rs.should_receive(:ping) }
+      rc.ping.should == "PONG"
+    end
+  end
 
   # context "#echo", :fast => true do
-  #   it "echo's all servers" do
-  #     rc.servers.each { |srvr| srvr.should_receive(:echo).with("hello") }
+  #   it "echo's all replica_sets" do
+  #     rc.replica_sets.each { |rs| rs.should_receive(:echo).with("hello") }
   #     rc.echo("hello").should == "hello"
   #   end
   # end
 
-  # context "#select", :fast => true do
-  #   it "changes the db across all servers" do
-  #     #select is some kind of weird reserve word - don't want to bother testing this. It works.
-  #     # rc.servers.each { |srvr| srvr.should_receive(:select).with(10) }
-  #     rc.select(10).should == "OK"
-  #   end
-  # end
+  context "#config", :fast => true do
+    context "#get" do
+      it "returns the config values across all replica_sets" do
+        rc.config(:get, "*").should_not be_empty
+      end
+    end
 
-  # context "#config", :fast => true do
-  #   context "#get" do
-  #     it "returns the config values across all servers" do
-  #       rc.config(:get, "*").should_not be_empty
-  #     end
-  #   end
+    context "#set", :fast => true do
+      it "sets values across all replica_sets" do
+        old_timeout = rc.config(:get, "timeout")["timeout"].to_i
+        old_timeout.should > 0
+        rc.config(:set, "timeout", 100).should == "OK"
+        rc.replica_sets.each { |rs| rs.config(:get, "timeout")["timeout"].to_i.should == 100 }
+        rc.config(:set, "timeout", old_timeout).should == "OK"
+        rc.replica_sets.each { |rs| rs.config(:get, "timeout")["timeout"].to_i.should == old_timeout }
+      end
+    end
 
-  #   context "#set", :fast => true do
-  #     it "sets values across all servers" do
-  #       old_timeout = rc.config(:get, "timeout")["timeout"].to_i
-  #       old_timeout.should > 0
-  #       rc.config(:set, "timeout", 100).should == "OK"
-  #       rc.servers.each { |srvr| srvr.config(:get, "timeout")["timeout"].to_i.should == 100 }
-  #       rc.config(:set, "timeout", old_timeout).should == "OK"
-  #       rc.servers.each { |srvr| srvr.config(:get, "timeout")["timeout"].to_i.should == old_timeout }
-  #     end
-  #   end
+    context "#resetstat", :fast => true do
+      it "resets stats across all replica_sets" do
+        rc.flushall
+        rc.replica_sets.each { |rs| rs.info["total_commands_processed"].to_i.should > 1 }
+        rc.config(:resetstat).should == "OK"
+        rc.replica_sets.each { |rs| rs.info["total_commands_processed"].to_i.should == 1 }
+      end
+    end
 
-  #   context "#resetstat", :fast => true do
-  #     it "resets stats across all servers" do
-  #       rc.flushall
-  #       rc.servers.each { |srvr| srvr.info["total_commands_processed"].to_i.should > 1 }
-  #       rc.config(:resetstat).should == "OK"
-  #       rc.servers.each { |srvr| srvr.info["total_commands_processed"].to_i.should == 1 }
-  #     end
-  #   end
-
-  #   context "#bad_command", :fast => true do
-  #     it "raises an error" do
-  #       expect { rc.config(:bad_command) }.to raise_error(RuntimeError, "ERR CONFIG subcommand must be one of GET, SET, RESETSTAT")
-  #     end
-  #   end
-  # end
+    context "#bad_command", :fast => true do
+      it "raises an error" do
+        expect { rc.config(:bad_command) }.to raise_error(RuntimeError, "ERR CONFIG subcommand must be one of GET, SET, RESETSTAT")
+      end
+    end
+  end
 
   # context "#auth", :fast => true do
   #   it "authenticates against all servers" do
