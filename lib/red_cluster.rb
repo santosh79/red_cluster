@@ -25,7 +25,7 @@ class RedCluster
   def auth(pwd); @replica_sets.each {|srvr| srvr.auth(pwd) }; "OK"; end
   def flushdb; @replica_sets.each(&:flushdb); end
   def shutdown; @replica_sets.each(&:shutdown); end
-  def flushall; @replica_sets.each { |server| server.flushall }; "OK"; end
+  def flushall; @replica_sets.each { |rs| rs.flushall }; "OK"; end
   def quit; @replica_sets.each(&:quit); "OK"; end
   def ping; @replica_sets.each(&:ping); "PONG"; end
   def keys(pattern); @replica_sets.map { |server| server.keys pattern }.flatten; end

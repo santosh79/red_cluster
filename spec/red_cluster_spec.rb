@@ -69,24 +69,18 @@ describe RedCluster do
     end
   end
 
-  # context "#flushall" do
-  #   it "flushes keys from all across the cluster" do
-  #     (1..10_000).to_a.each { |num| rc.set("number|#{num}", "hello") }
+  context "#flushall" do
+    it "flushes keys from all across the cluster" do
+      (1..10).to_a.each { |num| rc.set("number|#{num}", "hello") }
+      sleep 1
+      [0, 1, 2].each { |num| rc.replica_sets[num].randomkey.should be }
 
-  #     first_server_rand_key = rc.servers.first.randomkey
-  #     first_server_rand_key.should be
-  #     second_server_rand_key = rc.servers.last.randomkey
-  #     second_server_rand_key.should be
+      rc.flushall.should == "OK"
 
-  #     rc.flushall.should == "OK"
-
-  #     first_server_rand_key = rc.servers.first.randomkey
-  #     first_server_rand_key.should_not be
-  #     second_server_rand_key = rc.servers.last.randomkey
-  #     second_server_rand_key.should_not be
-  #     rc.randomkey.should_not be
-  #   end
-  # end
+      sleep 1
+      rc.randomkey.should_not be
+    end
+  end
 
   # context "#keys", :fast => true do
   #   it 'scans across the cluster' do
