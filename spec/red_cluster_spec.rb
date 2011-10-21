@@ -55,19 +55,19 @@ describe RedCluster do
     end
   end
 
-  # context "#flushdb" do
-  #   it "works" do
-  #     (1..10_000).to_a.each { |num| rc.set("number|#{num}", "hello") }
-  #     #make sure all servers have a key
-  #     rc.servers.each do |server|
-  #       server.randomkey.should be
-  #     end
-  #     rc.flushdb
-  #     rc.servers.each do |server|
-  #       server.randomkey.should_not be
-  #     end
-  #   end
-  # end
+  context "#flushdb" do
+    it "works" do
+      (1..10_000).to_a.each { |num| rc.set("number|#{num}", "hello") }
+      #make sure all servers have a key
+      rc.replica_sets.each do |replica_set|
+        replica_set.randomkey.should be
+      end
+      rc.flushdb
+      rc.replica_sets.each do |replica_set|
+        replica_set.randomkey.should_not be
+      end
+    end
+  end
 
   # context "#flushall" do
   #   it "flushes keys from all across the cluster" do
