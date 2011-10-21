@@ -72,43 +72,39 @@ describe RedCluster do
   context "#flushall" do
     it "flushes keys from all across the cluster" do
       (1..10).to_a.each { |num| rc.set("number|#{num}", "hello") }
-      sleep 1
+      sleep 2
       [0, 1, 2].each { |num| rc.replica_sets[num].randomkey.should be }
 
       rc.flushall.should == "OK"
 
-      sleep 1
+      sleep 2
       rc.randomkey.should_not be
     end
   end
 
-  # context "#keys", :fast => true do
-  #   it 'scans across the cluster' do
-  #     (1..100).to_a.each { |num| rc.set("number|#{num}", "hello") }
-  #     first_servers_keys = rc.servers.first.keys("*")
-  #     first_servers_keys.size.should > 0
-  #     second_servers_keys = rc.servers.last.keys("*")
-  #     second_servers_keys.size.should > 0
-  #     first_servers_keys.map(&:to_s).sort.should_not == second_servers_keys.map(&:to_s).sort
-  #     all_keys = rc.keys("*")
-  #     all_keys.map(&:to_s).sort.should == (first_servers_keys + second_servers_keys).map(&:to_s).sort
-  #   end
-  # end
+  context "#keys" do
+    it 'scans across the cluster' do
+      (1..10).to_a.each { |num| rc.set("number|#{num}", "hello") }
+      sleep 2
+      rc.keys("*").map(&:to_s).sort.should == rc.replica_sets.inject([]) { |accum, rs| accum << rs.keys("*") }.flatten.map(&:to_s).sort
+    end
+  end
 
-  # context "#smove", :fast => true do
-  #   it "returns false if the first set does not exist or does not have the member" do
-  #     rc.smove("non_existent_source", "destination", "foo").should == false
-  #     rc.sadd "source", "bar"
-  #     rc.smove("source", "destination", "foo").should == false
-  #   end
+  context "#smove" do
+    it "returns false if the first set does not exist or does not have the member" do
+      rc.smove("non_existent_source", "destination", "foo").should == false
+      rc.sadd "source", "bar"
+      rc.smove("source", "destination", "foo").should == false
+    end
 
-  #   it "returns true if the first set had the member" do
-  #     rc.sadd "source", "foo"
-  #     rc.smove("source", "destination", "foo").should == true
-  #     rc.sismember("source", "foo").should == false
-  #     rc.sismember("destination", "foo").should == true
-  #   end
-  # end
+    it "returns true if the first set had the member" do
+      rc.sadd "source", "foo"
+      sleep 1
+      rc.smove("source", "destination", "foo").should == true
+      rc.sismember("source", "foo").should == false
+      rc.sismember("destination", "foo").should == true
+    end
+  end
 
   # context "#sdiffstore", :fast => true do
   #   it "stores the diff in the destination" do
