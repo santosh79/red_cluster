@@ -2,13 +2,12 @@ require 'redis'
 require 'zlib'
 require 'set'
 require 'replica_set'
-require File.join(__FILE__,"../server")
 
 class RedCluster
   attr_reader :replica_sets
 
   def initialize(replica_sets = [])
-    @replica_sets = replica_sets.map { |replica_set| ReplicaSet.new replica_set }
+    @replica_sets = replica_sets.map { |replica_set| ReplicaSet.new(self, replica_set) }
   end
 
   SINGLE_KEY_KEY_OPS        = %W{del exists expire expireat move persists ttl type}.map(&:to_sym)

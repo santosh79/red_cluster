@@ -195,20 +195,20 @@ describe RedCluster do
     end
   end
 
-  # context "#multi-exec", :fast => true do
-  #   it "works" do
-  #     rc.get("foo").should_not be
-  #     rc.get("baz").should_not be
-  #     rc.multi
-  #     100.times do
-  #       rc.set("foo", "bar").should == "QUEUED"
-  #       rc.incr("baz").should == "QUEUED"
-  #     end
-  #     rc.exec.should == 100.times.map { |i| ["OK", i+1] }.flatten
-  #     rc.get("foo").should == "bar"
-  #     rc.get("baz").should == "100"
-  #   end
-  # end
+  context "#multi-exec", :fast => true do
+    it "works" do
+      rc.get("foo").should_not be
+      rc.get("baz").should_not be
+      rc.multi
+      100.times do
+        rc.set("foo", "bar").should == "QUEUED"
+        rc.incr("baz").should == "QUEUED"
+      end
+      rc.exec.should == 100.times.map { |i| ["OK", i+1] }.flatten
+      rc.get("foo").should == "bar"
+      rc.get("baz").should == "100"
+    end
+  end
 
   context "#watch", :fast => true do
     it "is an unsupported operation" do

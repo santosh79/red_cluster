@@ -7,7 +7,7 @@ describe RedCluster::ReplicaSet do
       master = {:host => "localhost", :port => 6379}
       slaves = [{:host => "localhost", :port => 7379},
         {:host => "localhost", :port => 8379}]
-      RedCluster::ReplicaSet.new :master => master, :slaves => slaves
+      RedCluster::ReplicaSet.new nil, :master => master, :slaves => slaves
     end
   end
 
@@ -16,7 +16,7 @@ describe RedCluster::ReplicaSet do
       master = {:host => "localhost", :port => 6379}
       slaves = [{:host => "localhost", :port => 7379},
         {:host => "localhost", :port => 8379}]
-      @rs = RedCluster::ReplicaSet.new :master => master, :slaves => slaves
+      @rs = RedCluster::ReplicaSet.new nil, :master => master, :slaves => slaves
     end
     let(:rs) { @rs }
     let(:master) { @rs.master }

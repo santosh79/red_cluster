@@ -2,10 +2,22 @@ class RedCluster
   class ReplicaSet
     attr_reader :slaves, :master
 
-    def initialize(options)
+    def initialize(cluster, options)
+      @my_cluster = cluster
       @master = Redis.new options[:master]
       @slaves = options[:slaves].map { |slave_config| Redis.new slave_config }
       setup_slaves
+    end
+
+    def multi
+      @in_multi = true
+      @cmd_order_in_multi = []
+      @master.multi
+    end
+
+    def exec
+      @in_multi = nil
+      @master.exec.map { |result| [@cmd_order_in_multi.shift, result] }
     end
 
     def method_missing(command, *args)
@@ -18,6 +30,9 @@ class RedCluster
       elsif command == :shutdown
         @master.shutdown
         @slaves.each(&:shutdown)
+      elsif @in_multi
+        @cmd_order_in_multi << @my_cluster.send(:multi_count)
+        @master.send command, *args
       elsif read_command?(command)
         next_slave.send command, *args
       else
