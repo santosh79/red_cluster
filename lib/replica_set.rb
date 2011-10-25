@@ -15,6 +15,9 @@ class RedCluster
         raise "Pub Sub Commands Not Permitted"
       elsif slaveof_command?(command)
         raise "Slave Commands Not Permitted"
+      elsif command == :shutdown
+        @master.shutdown
+        @slaves.each(&:shutdown)
       elsif read_command?(command)
         next_slave.send command, *args
       else

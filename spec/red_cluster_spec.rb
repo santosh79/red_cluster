@@ -421,15 +421,12 @@ describe RedCluster do
     end
   end
 
-  # context "#shutdown", :fast => true do
-  #   it "shutdowns all servers" do
-  #     rc.servers.each { |srvr| srvr.should_receive(:shutdown) }
-  #     rc.shutdown
-  #   end
-  # end
+  context "#shutdown", :fast => true do
+    it "shutdowns all servers" do
+      rc.replica_sets.each { |replica_set| replica_set.should_receive(:shutdown) }
+      rc.shutdown
+    end
+  end
 
-  # context "singletion" do
-  #   xit "has a singleton"
-  # end
 end
 
