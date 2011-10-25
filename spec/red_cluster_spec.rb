@@ -222,18 +222,18 @@ describe RedCluster do
     end
   end
 
-  # context "bgsave-lastsave" do
-  #   it "returns the earliest lastsave time across the cluster" do
-  #     lastsave = rc.lastsave
-  #     rc.set "foo", "bar"
-  #     rc.bgsave.should == "Background saving started"
-  #     sleep 1 #give it a little time to complete
-  #     new_last_save = rc.lastsave
-  #     # No Idea why this fails when running the whole suite
-  #     # new_last_save.should > lastsave
-  #     rc.servers.map(&:lastsave).sort.first.should == new_last_save
-  #   end
-  # end
+  context "bgsave-lastsave" do
+    it "returns the earliest lastsave time across the cluster" do
+      lastsave = rc.lastsave
+      rc.set "foo", "bar"
+      rc.bgsave.should == "Background saving started"
+      sleep 1 #give it a little time to complete
+      new_last_save = rc.lastsave
+      # No Idea why this fails when running the whole suite
+      # new_last_save.should > lastsave
+      rc.replica_sets.map(&:lastsave).sort.first.should == new_last_save
+    end
+  end
 
   context "#quit", :fast => true do
     it "closes all the cnxn's it has" do
@@ -248,12 +248,12 @@ describe RedCluster do
     end
   end
 
-  # context "#echo", :fast => true do
-  #   it "echo's all replica_sets" do
-  #     rc.replica_sets.each { |rs| rs.should_receive(:echo).with("hello") }
-  #     rc.echo("hello").should == "hello"
-  #   end
-  # end
+  context "#echo", :fast => true do
+    it "echo's all replica_sets" do
+      rc.replica_sets.each { |rs| rs.should_receive(:echo).with("hello") }
+      rc.echo("hello").should == "hello"
+    end
+  end
 
   context "#config", :fast => true do
     context "#get" do
