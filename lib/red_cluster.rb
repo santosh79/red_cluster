@@ -11,7 +11,7 @@ class RedCluster
     @replica_sets = replica_sets.map { |replica_set| ReplicaSet.new replica_set }
   end
 
-  SINGLE_KEY_KEY_OPS        = %W{del exists expire expireat move object persists sort ttl type}.map(&:to_sym)
+  SINGLE_KEY_KEY_OPS        = %W{del exists expire expireat move persists ttl type}.map(&:to_sym)
   STRING_OPS                = %W{append decr decrby get getbit getrange getset incr incrby mget mset msetnx set setbit setex setnx setrange strlen}.map(&:to_sym)
   HASH_OPS                  = %W{hdel hexists hget hgetall hincrby hkeys hlen hmget hmset hset hsetnx hvals}.map(&:to_sym)
   SINGLE_KEY_LIST_OPS       = %W{blpop brpop lindex linsert llen lpop lpush lpushx lrange lrem lset ltrim rpop rpush rpushx}.map(&:to_sym)
@@ -22,7 +22,6 @@ class RedCluster
   # Server Ops
   def select(db); @replica_sets.each {|srvr| srvr.select(db) }; "OK"; end
   def echo(msg); @replica_sets.each {|srvr| srvr.echo(msg) }; msg; end
-  def auth(pwd); @replica_sets.each {|srvr| srvr.auth(pwd) }; "OK"; end
   def flushdb; @replica_sets.each(&:flushdb); end
   def shutdown; @replica_sets.each(&:shutdown); end
   def flushall; @replica_sets.each { |rs| rs.flushall }; "OK"; end
@@ -52,12 +51,6 @@ class RedCluster
     #We need to return back the results sorted by rank. So in the above case it would be
     #["OK", 30, 1]. Ruby's full-LISP toolbox to the rescue
     Hash[*exec_results.flatten].sort.map(&:last)
-  end
-
-  def discard
-    @multi_count = nil
-    @replica_sets.each(&:discard)
-    'OK'
   end
 
   # Key Ops

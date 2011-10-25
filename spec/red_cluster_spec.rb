@@ -289,35 +289,35 @@ describe RedCluster do
     end
   end
 
-  # context "#auth", :fast => true do
-  #   it "authenticates against all servers" do
-  #     rc.servers.each { |srvr| srvr.should_receive(:auth).with("foobar") }
-  #     rc.auth "foobar"
-  #   end
-  # end
+  context "#auth", :fast => true do
+    it "is not supported" do
+      expect { rc.auth "foobar" }.to raise_error(RuntimeError, "Unsupported operation: auth")
+    end
+  end
 
-  # context "#discard", :fast => true do
-  #   it "discards the transaction" do
-  #     rc.set "foo", 1
-  #     rc.multi
-  #     rc.incr "foo"
-  #     rc.discard.should == 'OK'
-  #     rc.get("foo").to_i.should == 1
-  #   end
-  # end
+  context "#discard", :fast => true do
+    it "is not supported" do
+      expect { rc.discard }.to raise_error(RuntimeError, "Unsupported operation: discard")
+    end
+  end
 
-  # context "#watch" do
-  #   it "watches keys across the cluster" do
-  #   end
-  # end
+  context "#watch", :fast => true do
+    it "is not supported" do
+      expect { rc.watch }.to raise_error(RuntimeError, "Unsupported operation: watch")
+    end
+  end
 
-  # context "#object" do
-  #   xit "works"
-  # end
+  context "#object", :fast => true do
+    it "is not supported" do
+      expect { rc.object }.to raise_error(RuntimeError, "Unsupported operation: object")
+    end
+  end
 
-  # context "#sort" do
-  #   xit "works"
-  # end
+  context "#sort", :fast => true do
+    it "is not supported" do
+      expect { rc.sort }.to raise_error(RuntimeError, "Unsupported operation: sort")
+    end
+  end
 
   # context "#zinterstore", :fast => true do
   #   before do
