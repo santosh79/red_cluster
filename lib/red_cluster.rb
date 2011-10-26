@@ -10,20 +10,6 @@ class RedCluster
     @replica_sets = replica_sets.map { |replica_set| ReplicaSet.new(self, replica_set) }
   end
 
-  def load_aof_file(file_path)
-    aof_file = File.read file_path
-    commands = aof_file.split /^\*/
-    commands.each do |cmd|
-      split_cmd = cmd.split("\r\n")[1..-1]
-      next unless split_cmd
-      split_cmd.reject! { |cmd| cmd =~ /^\$/ }
-      redis_cmd, redis_key, redis_args = split_cmd[0], split_cmd[1], split_cmd[2..-1]
-      crc32_of_key = Zlib.crc32(redis_key).abs
-      replica_set = @replica_sets[crc32_of_key % @replica_sets.size]
-      replica_set.master.send redis_cmd, redis_key, *redis_args
-    end
-  end
-
   SINGLE_KEY_KEY_OPS        = %W{del exists expire expireat move persists ttl type}.map(&:to_sym)
   STRING_OPS                = %W{append decr decrby get getbit getrange getset incr incrby mget mset msetnx set setbit setex setnx setrange strlen}.map(&:to_sym)
   HASH_OPS                  = %W{hdel hexists hget hgetall hincrby hkeys hlen hmget hmset hset hsetnx hvals}.map(&:to_sym)
@@ -33,15 +19,19 @@ class RedCluster
   SINGLE_KEY_OPS            = SINGLE_KEY_KEY_OPS + STRING_OPS + HASH_OPS + SINGLE_KEY_LIST_OPS + SINGLE_KEY_SET_OPS + SINGLE_KEY_SORTED_SET_OPS
 
   # Server Ops
-  def select(db); @replica_sets.each {|srvr| srvr.select(db) }; "OK"; end
-  def echo(msg); @replica_sets.each {|srvr| srvr.echo(msg) }; msg; end
-  def flushdb; @replica_sets.each(&:flushdb); end
-  def shutdown; @replica_sets.each(&:shutdown); end
-  def flushall; @replica_sets.each { |rs| rs.flushall }; "OK"; end
-  def quit; @replica_sets.each(&:quit); "OK"; end
+  def select(db); @replica_sets.each {|replica_set| replica_set.select(db) }; "OK"; end
+
+  [:flushdb, :shutdown, :flushall, :quit, :multi].each do |method|
+    define_method method do
+      perform_across_all_replica_sets method
+    end
+  end
+
   def ping; @replica_sets.each(&:ping); "PONG"; end
-  def keys(pattern); @replica_sets.map { |server| server.keys pattern }.flatten; end
   def bgsave; @replica_sets.each(&:bgsave); "Background saving started"; end
+  def echo(msg); @replica_sets.each {|replica_set| replica_set.echo(msg) }; msg; end
+
+  def keys(pattern); @replica_sets.map { |replica_set| replica_set.keys pattern }.flatten; end
   def lastsave; @replica_sets.map(&:lastsave).min; end
 
   def config(cmd, *args)
@@ -54,8 +44,6 @@ class RedCluster
   end
 
   # Transaction Ops
-  def multi; @replica_sets.each(&:multi); end
-
   def exec
     @multi_count = nil
     exec_results = @replica_sets.map(&:exec)
@@ -152,7 +140,27 @@ class RedCluster
     end
   end
 
+  def load_aof_file(file_path)
+    aof_file = File.read file_path
+    commands = aof_file.split /^\*/
+    commands.each do |cmd|
+      split_cmd = cmd.split("\r\n")[1..-1]
+      next unless split_cmd
+      split_cmd.reject! { |cmd| cmd =~ /^\$/ }
+      redis_cmd, redis_key, redis_args = split_cmd[0], split_cmd[1], split_cmd[2..-1]
+      crc32_of_key = Zlib.crc32(redis_key).abs
+      replica_set = @replica_sets[crc32_of_key % @replica_sets.size]
+      replica_set.master.send redis_cmd, redis_key, *redis_args
+    end
+  end
+
   private
+
+  def perform_across_all_replica_sets(op, return_msg = 'OK')
+    @replica_sets.each { |replica_set| replica_set.send op }
+    return_msg
+  end
+
   def replica_set_for_key(key)
     @replica_sets[Zlib.crc32(key).abs % @replica_sets.size]
   end

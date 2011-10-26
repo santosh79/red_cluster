@@ -25,26 +25,6 @@ describe RedCluster do
   let(:rc) { @rc }
   after { rc.flushall }
 
-  it "gets initialized with a bunch of replica sets" do
-    first_replica_set = {
-      :master => {:host => "localhost", :port => 6379}, 
-      :slaves => [{:host => "localhost", :port => 7379},
-        {:host => "localhost", :port => 8379}]
-    }
-    second_replica_set = {
-      :master => {:host => "localhost", :port => 9379}, 
-      :slaves => [{:host => "localhost", :port => 10379},
-        {:host => "localhost", :port => 11379}]
-    }
-    third_replica_set = {
-      :master => {:host => "localhost", :port => 12379}, 
-      :slaves => [{:host => "localhost", :port => 13379},
-        {:host => "localhost", :port => 14379}]
-    }
-    replica_sets = [first_replica_set, second_replica_set, third_replica_set]
-    RedCluster.new replica_sets
-  end
-
   context "#randomkey", :fast => true do
     it "returns a random key across the cluster", :fast => true do
       rc.set "foo", "bar"
@@ -250,8 +230,8 @@ describe RedCluster do
 
   context "#echo", :fast => true do
     it "echo's all replica_sets" do
-      rc.replica_sets.each { |rs| rs.should_receive(:echo).with("hello") }
-      rc.echo("hello").should == "hello"
+      rc.echo('hello').should == 'hello'
+      # rc.replica_sets.each { |rs| rs.should_receive(:echo).with("hello") }
     end
   end
 
