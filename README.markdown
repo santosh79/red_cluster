@@ -31,8 +31,7 @@ Usage
 -----
 ### Installation
 Including Red Cluster in your ruby project is done via rubygems:
-``` ruby
-gem install red_cluster
+    gem install red_cluster
 
 ### Setup
 As shown, in the diagram above Red Cluster works with one more replica sets & this concept is translated into Ruby code much as you would expect:
