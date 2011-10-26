@@ -1,7 +1,7 @@
 Red Cluster
 ===========
 
-Red Cluster is a library that cluster's together a group of Redis servers together, presenting them to the outside world as though they are all just one redis server. If you are familiar with efforts being made by the redis team on building this cluster into redis, then none of this should be new.
+Red Cluster is a library that cluster's together a group of Redis servers, presenting them to the outside world as though they are all just one redis server. If you are familiar with efforts being made by the redis team on building this cluster into redis, then none of this should be new.
 
 Motivation
 ----------
