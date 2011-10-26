@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name     = 'red_cluster'
-  s.version  = "0.0.1"
+  s.version  = "0.0.2"
   s.date     = Time.now.strftime('%Y-%m-%d')
   s.summary  = "Red Cluster clusters togethers a set of redis servers."
   s.homepage = "https://github.com/santosh79/red_cluster"
