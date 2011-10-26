@@ -57,6 +57,7 @@ rc = RedCluster.new replica_sets
 
 rc.set "foo", "bar"
 rc.incr "user_count"
+```
 
 ### Loading in your existing data
 Red Cluster supports loading in a Redis [AOF file](http://redis.io/topics/persistence#append-only-file). The code for doing this is as follows:
@@ -64,3 +65,4 @@ Red Cluster supports loading in a Redis [AOF file](http://redis.io/topics/persis
 ``` ruby
 rc = RedCluster.new replica_sets
 rc.load_aof_file "/path/to/file"
+```
