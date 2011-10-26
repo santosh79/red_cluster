@@ -66,3 +66,25 @@ Red Cluster supports loading in a Redis [AOF file](http://redis.io/topics/persis
 rc = RedCluster.new replica_sets
 rc.load_aof_file "/path/to/file"
 ```
+
+### Unsupported commands
+This library is a work in progress, and since the distributed system challenges of clustering together a federation of redis servers is an arduous task, a couple of commands in the redis toolkit are not supported in the interest of getting this library out in haste. The list of unsupported ops are:
+* auth
+* discard
+* watch
+* object
+* sort
+* slaveof
+* All of the pub sub commands
+* All blocking commands
+
+### Semi-supported commands
+The set union, diff and intersection commands along with their sorted set cousins; do work 100% but are not going to be as performant as you would see if you were just using Redis directly. The reason being a lot of the heavy lifting is now being done in ruby land, instead of within the redis server to overcome the distributed nature of the problem.
+
+### Thread Safety
+This is not a thread safe library. In JRuby, synchronizing on the red cluster reference should make this safe to use in a multi-thread environment. In MRI since [parallelism is still a work in progress](http://www.engineyard.com/blog/2011/ruby-concurrency-and-you/) I'd recommend not even bothering & just have Thread local references.
+
+Author
+------
+
+Santosh Kumar :: santosh79@gmail.com :: @santosh79
