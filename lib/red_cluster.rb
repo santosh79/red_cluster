@@ -10,6 +10,20 @@ class RedCluster
     @replica_sets = replica_sets.map { |replica_set| ReplicaSet.new(self, replica_set) }
   end
 
+  def load_aof_file(file_path)
+    aof_file = File.read file_path
+    commands = aof_file.split /^\*/
+    commands.each do |cmd|
+      split_cmd = cmd.split("\r\n")[1..-1]
+      next unless split_cmd
+      split_cmd.reject! { |cmd| cmd =~ /^\$/ }
+      redis_cmd, redis_key, redis_args = split_cmd[0], split_cmd[1], split_cmd[2..-1]
+      crc32_of_key = Zlib.crc32(redis_key).abs
+      replica_set = @replica_sets[crc32_of_key % @replica_sets.size]
+      replica_set.master.send redis_cmd, redis_key, *redis_args
+    end
+  end
+
   SINGLE_KEY_KEY_OPS        = %W{del exists expire expireat move persists ttl type}.map(&:to_sym)
   STRING_OPS                = %W{append decr decrby get getbit getrange getset incr incrby mget mset msetnx set setbit setex setnx setrange strlen}.map(&:to_sym)
   HASH_OPS                  = %W{hdel hexists hget hgetall hincrby hkeys hlen hmget hmset hset hsetnx hvals}.map(&:to_sym)
