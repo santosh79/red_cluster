@@ -69,6 +69,7 @@ rc.load_aof_file "/path/to/file"
 
 ### Unsupported commands
 This library is a work in progress, and since the distributed system challenges of clustering together a federation of redis servers is an arduous task, a couple of commands in the redis toolkit are not supported in the interest of getting this library out in haste. The list of unsupported ops are:
+
 * auth
 * discard
 * watch
