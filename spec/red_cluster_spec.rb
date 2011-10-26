@@ -2,22 +2,47 @@ require 'spec_helper'
 require 'red_cluster'
 
 describe RedCluster do
-  before(:all) do
-    @rc ||=  RedCluster.new [{:host => "127.0.0.1", :port => "6379"}, {:host => "127.0.0.1", :port => "7379"}] 
+  before do
+    first_replica_set = {
+      :master => {:host => "localhost", :port => 6379}, 
+      :slaves => [{:host => "localhost", :port => 7379},
+        {:host => "localhost", :port => 8379}]
+    }
+    second_replica_set = {
+      :master => {:host => "localhost", :port => 9379}, 
+      :slaves => [{:host => "localhost", :port => 10379},
+        {:host => "localhost", :port => 11379}]
+    }
+    third_replica_set = {
+      :master => {:host => "localhost", :port => 12379}, 
+      :slaves => [{:host => "localhost", :port => 13379},
+        {:host => "localhost", :port => 14379}]
+    }
+    replica_sets = [first_replica_set, second_replica_set, third_replica_set]
+    @rc = RedCluster.new replica_sets
+    @rc.replica_sets.each { |rs| rs.stubs(:read_command?).returns(false) }
   end
   let(:rc) { @rc }
   after { rc.flushall }
 
-  it "gets initialized with an array of hashes containing server info" do
-    servers = [{:host => "127.0.0.1", :port => "6379"}, {:host => "127.0.0.1", :port => "7379"}, {:host => "127.0.0.1", :port => "8379"}]
-    RedCluster.new servers
-  end
-
-  context "#set", :fast => true do
-    it "stores the key value in only one of the servers it's fronting", :fast => true do
-      rc.set "foo", "bar"
-      rc.servers.select { |server| server.get("foo") != nil }.size.should == 1
-    end
+  it "gets initialized with a bunch of replica sets" do
+    first_replica_set = {
+      :master => {:host => "localhost", :port => 6379}, 
+      :slaves => [{:host => "localhost", :port => 7379},
+        {:host => "localhost", :port => 8379}]
+    }
+    second_replica_set = {
+      :master => {:host => "localhost", :port => 9379}, 
+      :slaves => [{:host => "localhost", :port => 10379},
+        {:host => "localhost", :port => 11379}]
+    }
+    third_replica_set = {
+      :master => {:host => "localhost", :port => 12379}, 
+      :slaves => [{:host => "localhost", :port => 13379},
+        {:host => "localhost", :port => 14379}]
+    }
+    replica_sets = [first_replica_set, second_replica_set, third_replica_set]
+    RedCluster.new replica_sets
   end
 
   context "#randomkey", :fast => true do
@@ -34,49 +59,33 @@ describe RedCluster do
     it "works" do
       (1..10_000).to_a.each { |num| rc.set("number|#{num}", "hello") }
       #make sure all servers have a key
-      rc.servers.each do |server|
-        server.randomkey.should be
+      rc.replica_sets.each do |replica_set|
+        replica_set.randomkey.should be
       end
       rc.flushdb
-      rc.servers.each do |server|
-        server.randomkey.should_not be
+      rc.replica_sets.each do |replica_set|
+        replica_set.randomkey.should_not be
       end
     end
   end
 
   context "#flushall" do
     it "flushes keys from all across the cluster" do
-      (1..10_000).to_a.each { |num| rc.set("number|#{num}", "hello") }
-
-      first_server_rand_key = rc.servers.first.randomkey
-      first_server_rand_key.should be
-      second_server_rand_key = rc.servers.last.randomkey
-      second_server_rand_key.should be
-
+      (1..10).to_a.each { |num| rc.set("number|#{num}", "hello") }
+      [0, 1, 2].each { |num| rc.replica_sets[num].master.randomkey.should be }
       rc.flushall.should == "OK"
-
-      first_server_rand_key = rc.servers.first.randomkey
-      first_server_rand_key.should_not be
-      second_server_rand_key = rc.servers.last.randomkey
-      second_server_rand_key.should_not be
       rc.randomkey.should_not be
     end
   end
 
-  context "#keys", :fast => true do
+  context "#keys" do
     it 'scans across the cluster' do
-      (1..100).to_a.each { |num| rc.set("number|#{num}", "hello") }
-      first_servers_keys = rc.servers.first.keys("*")
-      first_servers_keys.size.should > 0
-      second_servers_keys = rc.servers.last.keys("*")
-      second_servers_keys.size.should > 0
-      first_servers_keys.map(&:to_s).sort.should_not == second_servers_keys.map(&:to_s).sort
-      all_keys = rc.keys("*")
-      all_keys.map(&:to_s).sort.should == (first_servers_keys + second_servers_keys).map(&:to_s).sort
+      (1..10).to_a.each { |num| rc.set("number|#{num}", "hello") }
+      rc.keys("*").map(&:to_s).sort.should == rc.replica_sets.inject([]) { |accum, rs| accum << rs.keys("*") }.flatten.map(&:to_s).sort
     end
   end
 
-  context "#smove", :fast => true do
+  context "#smove" do
     it "returns false if the first set does not exist or does not have the member" do
       rc.smove("non_existent_source", "destination", "foo").should == false
       rc.sadd "source", "bar"
@@ -222,7 +231,7 @@ describe RedCluster do
       new_last_save = rc.lastsave
       # No Idea why this fails when running the whole suite
       # new_last_save.should > lastsave
-      rc.servers.map(&:lastsave).sort.first.should == new_last_save
+      rc.replica_sets.map(&:lastsave).sort.first.should == new_last_save
     end
   end
 
@@ -233,51 +242,43 @@ describe RedCluster do
   end
 
   context "#ping", :fast => true do
-    it "ping's all servers in the cluster" do
-      rc.servers.each { |srvr| srvr.should_receive(:ping) }
+    it "ping's all replica_sets in the cluster" do
+      rc.replica_sets.each { |rs| rs.should_receive(:ping) }
       rc.ping.should == "PONG"
     end
   end
 
   context "#echo", :fast => true do
-    it "echo's all servers" do
-      rc.servers.each { |srvr| srvr.should_receive(:echo).with("hello") }
+    it "echo's all replica_sets" do
+      rc.replica_sets.each { |rs| rs.should_receive(:echo).with("hello") }
       rc.echo("hello").should == "hello"
-    end
-  end
-
-  context "#select", :fast => true do
-    it "changes the db across all servers" do
-      #select is some kind of weird reserve word - don't want to bother testing this. It works.
-      # rc.servers.each { |srvr| srvr.should_receive(:select).with(10) }
-      rc.select(10).should == "OK"
     end
   end
 
   context "#config", :fast => true do
     context "#get" do
-      it "returns the config values across all servers" do
+      it "returns the config values across all replica_sets" do
         rc.config(:get, "*").should_not be_empty
       end
     end
 
     context "#set", :fast => true do
-      it "sets values across all servers" do
+      it "sets values across all replica_sets" do
         old_timeout = rc.config(:get, "timeout")["timeout"].to_i
         old_timeout.should > 0
         rc.config(:set, "timeout", 100).should == "OK"
-        rc.servers.each { |srvr| srvr.config(:get, "timeout")["timeout"].to_i.should == 100 }
+        rc.replica_sets.each { |rs| rs.config(:get, "timeout")["timeout"].to_i.should == 100 }
         rc.config(:set, "timeout", old_timeout).should == "OK"
-        rc.servers.each { |srvr| srvr.config(:get, "timeout")["timeout"].to_i.should == old_timeout }
+        rc.replica_sets.each { |rs| rs.config(:get, "timeout")["timeout"].to_i.should == old_timeout }
       end
     end
 
     context "#resetstat", :fast => true do
-      it "resets stats across all servers" do
+      it "resets stats across all replica_sets" do
         rc.flushall
-        rc.servers.each { |srvr| srvr.info["total_commands_processed"].to_i.should > 1 }
+        rc.replica_sets.each { |rs| rs.info["total_commands_processed"].to_i.should > 1 }
         rc.config(:resetstat).should == "OK"
-        rc.servers.each { |srvr| srvr.info["total_commands_processed"].to_i.should == 1 }
+        rc.replica_sets.each { |rs| rs.info["total_commands_processed"].to_i.should == 1 }
       end
     end
 
@@ -289,33 +290,33 @@ describe RedCluster do
   end
 
   context "#auth", :fast => true do
-    it "authenticates against all servers" do
-      rc.servers.each { |srvr| srvr.should_receive(:auth).with("foobar") }
-      rc.auth "foobar"
+    it "is not supported" do
+      expect { rc.auth "foobar" }.to raise_error(RuntimeError, "Unsupported operation: auth")
     end
   end
 
   context "#discard", :fast => true do
-    it "discards the transaction" do
-      rc.set "foo", 1
-      rc.multi
-      rc.incr "foo"
-      rc.discard.should == 'OK'
-      rc.get("foo").to_i.should == 1
+    it "is not supported" do
+      expect { rc.discard }.to raise_error(RuntimeError, "Unsupported operation: discard")
     end
   end
 
-  context "#watch" do
-    it "watches keys across the cluster" do
+  context "#watch", :fast => true do
+    it "is not supported" do
+      expect { rc.watch }.to raise_error(RuntimeError, "Unsupported operation: watch")
     end
   end
 
-  context "#object" do
-    xit "works"
+  context "#object", :fast => true do
+    it "is not supported" do
+      expect { rc.object }.to raise_error(RuntimeError, "Unsupported operation: object")
+    end
   end
 
-  context "#sort" do
-    xit "works"
+  context "#sort", :fast => true do
+    it "is not supported" do
+      expect { rc.sort }.to raise_error(RuntimeError, "Unsupported operation: sort")
+    end
   end
 
   context "#zinterstore", :fast => true do
@@ -422,13 +423,10 @@ describe RedCluster do
 
   context "#shutdown", :fast => true do
     it "shutdowns all servers" do
-      rc.servers.each { |srvr| srvr.should_receive(:shutdown) }
+      rc.replica_sets.each { |replica_set| replica_set.should_receive(:shutdown) }
       rc.shutdown
     end
   end
 
-  context "singletion" do
-    xit "has a singleton"
-  end
 end
 
